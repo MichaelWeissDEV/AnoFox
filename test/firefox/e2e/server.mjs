@@ -48,7 +48,9 @@ const server = http.createServer((req, res) => {
     requests.push({ host, url: `${u.pathname}${u.search}`, ua: undefined });
   }
   switch (u.pathname) {
-    case '/proxy.pac': return send('application/x-ns-proxy-autoconfig', `function FindProxyForURL(url, host) { if (host === '127.0.0.1' || host === 'localhost') return 'DIRECT'; return 'PROXY 127.0.0.1:${PORT}'; }`);
+    // E2E_NETWORK=1: the optional "download:" checks talk to the real internet, so nothing is routed to this server
+    case '/proxy.pac': return send('application/x-ns-proxy-autoconfig', process.env.E2E_NETWORK ? "function FindProxyForURL() { return 'DIRECT'; }" : `function FindProxyForURL(url, host) { if (host === '127.0.0.1' || host === 'localhost') return 'DIRECT'; return 'PROXY 127.0.0.1:${PORT}'; }`);
+    case '/__network': return send('text/plain', process.env.E2E_NETWORK ? '1' : '');
     case '/__filter': return send('text/plain', process.env.E2E_FILTER ?? '');
     case '/__ping': console.log('PING', u.searchParams.get('m')); return send('text/plain', 'ok');
     case '/__log': return send('application/json', JSON.stringify(requests));

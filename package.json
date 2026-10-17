@@ -1,7 +1,7 @@
 {
   "name": "anofox",
   "version": "0.1.0",
-  "description": "AnoFox: lokale Privatsph\u00e4re- und Sicherheitskontrolle f\u00fcr Firefox (Manifest V3)",
+  "description": "AnoFox: lokale Privatsphäre- und Sicherheitskontrolle für Firefox (Manifest V3)",
   "private": true,
   "license": "GPL-3.0-or-later",
   "type": "module",
@@ -30,7 +30,8 @@
     "test:firefox:storage": "node --no-warnings test/firefox/storage/run.mjs",
     "test:e2e": "node --no-warnings test/firefox/e2e/run.mjs",
     "check": "npm run typecheck && npm test",
-    "test:firefox:threat": "node --no-warnings test/firefox/threat/run.mjs"
+    "test:firefox:threat": "node --no-warnings test/firefox/threat/run.mjs",
+    "test:e2e:download": "E2E_NETWORK=1 node --no-warnings test/firefox/e2e/run.mjs"
   },
   "devDependencies": {
     "@types/firefox-webext-browser": "^120.0.4",

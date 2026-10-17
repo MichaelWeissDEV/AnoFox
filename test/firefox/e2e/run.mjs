@@ -2,7 +2,8 @@
  * End-to-end suite for the BUILT AnoFox extension in real (headless) Firefox.
  *
  *   npm run test:e2e        (FIREFOX_BIN to override the Firefox path; RESULT_OUT=file.json keeps the raw result;
- *                            E2E_FILTER='consent hide' runs only checks whose name matches the regex)
+ *                            E2E_FILTER='consent hide' runs only checks whose name matches the regex;
+ *                            E2E_NETWORK=1 runs ONLY the "download:" checks against the real internet, see npm run test:e2e:download)
  *
  * It builds dist-e2e/ (extension + driver page), starts a virtual-host server, routes the test hostnames to it
  * through a PAC proxy and lets the driver exercise the real background/content scripts. Exit code 1 on any failure.
@@ -24,7 +25,7 @@ if (b.status !== 0) { console.error('FAIL: e2e build'); process.exit(1); }
 
 const dir = mkdtempSync(join(tmpdir(), 'anofox-e2e-'));
 const resultFile = join(dir, 'result.json');
-const server = spawn(process.execPath, ['--no-warnings', join(here, 'server.mjs'), resultFile], { env: { ...process.env, PROBE_PORT: String(PORT), E2E_FILTER: process.env.E2E_FILTER ?? '' }, stdio: 'ignore' });
+const server = spawn(process.execPath, ['--no-warnings', join(here, 'server.mjs'), resultFile], { env: { ...process.env, PROBE_PORT: String(PORT), E2E_FILTER: process.env.E2E_FILTER ?? '', E2E_NETWORK: process.env.E2E_NETWORK ?? '' }, stdio: 'ignore' });
 await new Promise((r) => setTimeout(r, 800));
 const webext = spawn('npx', ['web-ext', 'run', '--source-dir', join(root, 'dist-e2e'), '--firefox', FIREFOX, '--arg=-headless',
   '--pref=network.proxy.type=2', `--pref=network.proxy.autoconfig_url=http://127.0.0.1:${PORT}/proxy.pac`,
@@ -43,7 +44,7 @@ const { results } = JSON.parse(readFileSync(resultFile, 'utf8'));
 if (process.env.RESULT_OUT) writeFileSync(process.env.RESULT_OUT, JSON.stringify(results, null, 2));
 let failed = 0;
 for (const r of results) {
-  if (r.ok) console.log('ok   ', r.name);
+  if (r.ok) console.log('ok   ', r.name + (r.detail ? `\n       ${r.detail}` : ''));
   else { failed++; console.log('FAIL ', r.name, '\n     ', r.detail); }
 }
 console.log(`\n${results.length - failed}/${results.length} end-to-end checks passed`);

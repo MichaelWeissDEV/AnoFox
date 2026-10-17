@@ -22,12 +22,14 @@ const sendRaw = async (msg: Record<string, unknown>): Promise<any> => Promise.ra
 function ping(m: string) { return pingImpl(m); }
 const pingImpl = (m: string) => fetch(`${SERVER}/__ping?m=${encodeURIComponent(m)}`).catch(() => undefined);
 ping('driver loaded');
+let networkMode = false; // set from the server: E2E_NETWORK=1 -> only "download:" checks, with real internet access
 let filter: RegExp | null = null; // optional E2E_FILTER=regex: only run matching checks (fast iteration)
-async function check(name: string, fn: () => Promise<void> | void): Promise<void> {
+async function check(name: string, fn: () => Promise<string | void> | string | void): Promise<void> {
+  if (networkMode !== name.startsWith('download:')) return; // download: checks need (and only run with) real network access
   if (filter && !filter.test(name)) return;
   try {
-    await Promise.race([Promise.resolve().then(fn), new Promise((_, rej) => setTimeout(() => rej(new Error('check timed out after 90s')), 90_000))]);
-    results.push({ name, ok: true }); await ping('ok ' + name);
+    const note = await Promise.race([Promise.resolve().then(fn), new Promise<never>((_, rej) => setTimeout(() => rej(new Error('check timed out after 90s')), 90_000))]);
+    results.push({ name, ok: true, detail: typeof note === 'string' ? note : undefined }); await ping('ok ' + name);
   }
   catch (e) { results.push({ name, ok: false, detail: String((e as Error)?.message ?? e).slice(0, 500) }); await ping('FAIL ' + name + ' :: ' + String((e as Error)?.message ?? e).slice(0, 200)); }
 }
@@ -84,6 +86,7 @@ async function seedList(text: string): Promise<void> {
 async function main(): Promise<void> {
   const f = await (await fetch(`${SERVER}/__filter`)).text().catch(() => '');
   if (f) filter = new RegExp(f, 'i');
+  networkMode = (await (await fetch(`${SERVER}/__network`)).text().catch(() => '')) === '1';
   // ---------------------------------------------------------------- startup
   await check('startup: background answers with schema v2 defaults (balanced, nothing enabled that should not be)', async () => {
     for (let i = 0; i < 20; i++) { const r = await send({ type: 'GET_SETTINGS' }).catch(() => null); if (r?.success) { eq(r.settings.schemaVersion, 2, 'schema'); eq(r.settings.profile, 'balanced', 'profile'); return; } await sleep(300); }
@@ -113,6 +116,20 @@ async function main(): Promise<void> {
   });
 
   // ---------------------------------------------------------------- Social embed guard
+
+  await check('permissions: no declarativeNetRequestFeedback; cleaned-URL counting follows the OPTIONAL webRequest permission, cleaning itself never does', async () => {
+    const granted = await browser.permissions.contains({ permissions: ['webRequest'] });
+    const mf = browser.runtime.getManifest();
+    assert(!(mf.permissions ?? []).includes('declarativeNetRequestFeedback'), 'declarativeNetRequestFeedback must not be requested');
+    await reset();
+    await send({ type: 'UPDATE_SETTINGS', settings: { statsEnabled: true } });
+    await serverReset();
+    await withTab(`http://${A}/clean?utm_source=a&id=1`, async () => { await sleep(1500); });
+    eq((await serverLog()).filter((r) => r.url.startsWith('/clean')).map((r) => r.url), ['/clean?id=1'], 'the URL is cleaned either way');
+    const st = await send({ type: 'GET_STATS_AND_LOGS' });
+    if (granted) assert(st.statistics.totalCleanedUrls >= 1, 'permission granted but nothing counted: ' + JSON.stringify(st.statistics));
+    else eq(st.statistics.totalCleanedUrls, 0, 'without the permission nothing can be counted (and nothing may crash)');
+  });
   await reset();
   await check('Embed Guard: Twitch embed is blocked before the network and replaced by a placeholder', async () => {
     await withTab(`http://${A}/embed.html`, async (tab) => {
@@ -715,6 +732,63 @@ async function main(): Promise<void> {
     assert(css.includes('prefers-reduced-motion: reduce') && css.includes('forced-colors: active'), 'media preferences');
     assert(/min-height:\s*36px/.test(css), 'target size');
   });
+
+
+  // ---------------------------------------------------------------- real downloads (npm run test:e2e:download, needs internet)
+  if (networkMode) {
+    const dyn = async () => browser.declarativeNetRequest.getDynamicRules();
+    const inRange = (rules: Array<{ id: number }>, lo: number, hi: number) => rules.filter((r) => r.id >= lo && r.id <= hi).length;
+    const listedHost = async (url: string): Promise<string> => {
+      const text = await (await fetch(url)).text();
+      const line = text.split('\n').find((l) => l.trim() && !l.startsWith('#') && /^[a-z0-9.-]+$/i.test(l.trim()) && l.includes('.'));
+      assert(line, 'no usable entry in ' + url);
+      return line!.trim().toLowerCase();
+    };
+    await reset();
+    await check('download: urlhaus-online is fetched over HTTPS, validated, compiled and installed; a listed host is stopped before the network', async () => {
+      const r = await send({ type: 'SET_THREAT_LIST_ENABLED', id: 'urlhaus-online', enabled: true });
+      assert(r.success, 'enable failed: ' + JSON.stringify(r));
+      const st = (await send({ type: 'GET_THREAT_STATUS' })).lists.find((l: any) => l.id === 'urlhaus-online').state;
+      assert(st.installed && st.current.filterCount > 100 && st.ruleCount >= 2 && st.current.sha256.length === 64, 'state ' + JSON.stringify(st));
+      const host = await listedHost('https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-domains-online.txt');
+      const tab = await openTab(`http://${host}/`);
+      const url = (await browser.tabs.get(tab.id!)).url ?? '';
+      await browser.tabs.remove(tab.id!);
+      assert(/^moz-extension:\/\/[^/]+\/blocked\.html\?l=urlhaus-online&u=/.test(url), `${host} -> ${url}`);
+    });
+    await check('download: phishing-filter (~30 000 entries) installs and a listed phishing host shows the warning', async () => {
+      const r = await send({ type: 'SET_THREAT_LIST_ENABLED', id: 'phishing-filter', enabled: true });
+      assert(r.success, 'enable failed: ' + JSON.stringify(r));
+      const st = (await send({ type: 'GET_THREAT_STATUS' })).lists.find((l: any) => l.id === 'phishing-filter').state;
+      assert(st.installed && st.current.filterCount > 5000, 'state ' + JSON.stringify(st));
+      const host = await listedHost('https://malware-filter.gitlab.io/malware-filter/phishing-filter-domains.txt');
+      const tab = await openTab(`http://${host}/login`);
+      const url = (await browser.tabs.get(tab.id!)).url ?? '';
+      await browser.tabs.remove(tab.id!);
+      assert(url.includes('blocked.html?l=phishing-filter'), `${host} -> ${url}`);
+    });
+    await check('download: EasyList + EasyPrivacy respect the real Firefox quota and are reported as partial instead of failing', async () => {
+      const a = await send({ type: 'SET_LIST_ENABLED', id: 'easylist', enabled: true });
+      assert(a.success && a.summary.applied, 'easylist: ' + JSON.stringify(a.summary));
+      const b = await send({ type: 'SET_LIST_ENABLED', id: 'easyprivacy', enabled: true }).catch(() => null);
+      const rules = await dyn();
+      const adRules = inRange(rules, 100_000, 199_999);
+      assert(adRules > 1000, 'expected thousands of list rules, got ' + adRules);
+      assert(rules.length <= 5000, 'dynamic rule quota exceeded: ' + rules.length);
+      assert(inRange(rules, 200_000, 299_999) > 0, 'threat rules must survive next to the adblock lists (budget reserve)');
+      const lists = (await send({ type: 'GET_LISTS' })).lists;
+      assert(lists.find((l: any) => l.id === 'easylist').state.current.filterCount > 20000, 'easylist parsed');
+      return `adblock rules ${adRules}, threat rules ${inRange(rules, 200_000, 299_999)}, dynamic total ${rules.length}/5000; EasyPrivacy stats ${JSON.stringify(b && b.summary && b.summary.stats)}`;
+    });
+    await check('download: lists keep ETag/sha256 for conditional updates, and reset removes every list rule', async () => {
+      const lists = (await send({ type: 'GET_LISTS' })).lists;
+      const cur = lists.find((l: any) => l.id === 'easylist').state.current;
+      assert(cur.sha256.length === 64 && cur.etag, 'conditional-request metadata missing: ' + JSON.stringify(cur));
+      await reset();
+      const rules = await dyn();
+      eq(inRange(rules, 100_000, 299_999) - rules.filter((r) => r.id === 299_990).length, 0, 'list rules after reset (the local userinfo-warning rule 299990 is not a list rule and stays)');
+    });
+  }
 
   // ---------------------------------------------------------------- native Firefox settings
   await reset();
