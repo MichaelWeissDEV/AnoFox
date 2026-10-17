@@ -23,8 +23,10 @@ Versionierung nach [SemVer](https://semver.org/lang/de/). Solange die erste Vers
 - **Native Firefox-Einstellungen** über `browser.privacy` mit `levelOfControl`-Prüfung, Überschreibung pro Einstellung und
   Freigabe per `clear()`.
 - Versioniertes **Einstellungsschema** (v2) mit Migration, Validierung, Import/Export und Rollback.
-- Neuer Optionen-Tab **Schutzprofile** (Profile, Module, Regeln, native Einstellungen, Listen, Cookie Vault) und
-  Profil-/Website-Steuerung im Popup.
+- **Neue Oberfläche**: Dashboard mit Übersicht, Seitenleisten-Navigation (13 Bereiche), neu gestaltetes Popup und Warnseite,
+  gemeinsame Design-Tokens (WCAG-2.2-AA-geprüft), Komponentenhelfer, Fokuserhalt beim Neuzeichnen, Skip-Link, Live-Regionen,
+  responsives Layout. Zugänglichkeitsprüfungen im echten Firefox fanden und behoben: 20 unbenannte Bedienelemente und eine
+  Layoutbreite, die bei 360 px horizontales Scrollen erzwang.
 - **Cookie-Banner-Manager** (Modi Manuell/Ablehnen/Ausblenden, Adapter für OneTrust, Cookiebot, Usercentrics, Klaro, Didomi,
   Quantcast und ein generischer Erkenner): erteilt nie Zustimmung, verweigert Klicks auf zustimmend beschriftete Elemente,
   blendet blockierende Dialoge nicht aus; Abschalten pro Website. Geprüft gegen nachgebaute Dialoge.
@@ -34,7 +36,7 @@ Versionierung nach [SemVer](https://semver.org/lang/de/). Solange die erste Vers
   malware-filter), Phishing-Filter, Phishing.Database, alle standardmäßig aus.
 - Logo und Erweiterungs-Icons.
 - Tests: Unit-Tests, Firefox-Messsuiten (CSP, `privacy`-API, Navigator, Löschreichweite) und eine
-  **Ende-zu-Ende-Suite mit der gebauten Erweiterung in echtem Firefox** (63 Prüfungen).
+  **Ende-zu-Ende-Suite mit der gebauten Erweiterung in echtem Firefox** (76 Prüfungen).
 - Dokumentation der Fähigkeiten und Messungen unter `docs/architecture/`.
 
 ### Geändert

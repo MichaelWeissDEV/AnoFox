@@ -37,7 +37,7 @@ Leitlinien:
 ## Was AnoFox kann
 
 Der Status bezieht sich auf **Firefox 158 (Desktop, macOS)**. „E2E“ heißt: von einer Testsuite mit der gebauten Erweiterung in
-echtem Firefox belegt (`npm run test:e2e`, 63 Prüfungen).
+echtem Firefox belegt (`npm run test:e2e`, 76 Prüfungen).
 
 | Bereich | Funktion | Status |
 |---|---|---|
@@ -53,6 +53,7 @@ echtem Firefox belegt (`npm run test:e2e`, 63 Prüfungen).
 | **Native Firefox-Schutzfunktionen** | `resistFingerprinting`, WebRTC-IP-Weitergabe, Referer, Prefetch, Tracking-Schutz – mit Kontrolle von `levelOfControl`, Freigabe per `clear()` | ✅ E2E + Firefox-Messung |
 | **Phishing & Malware** | Lokaler Abgleich mit heruntergeladenen Domain-Listen (URLhaus via malware-filter, Phishing-Filter, Phishing.Database), **keine Cloud-Abfrage**: Hauptseiten → Warnseite (Freigabe 10 Min/Sitzung), Unterressourcen blockiert; Warnung vor Adressen mit Zugangsdaten vor dem Server; Schutz gegen vergiftete Listen | 🧪 E2E mit lokalen Testdaten und echter Kapazitätsmessung (400 000 Domains); echter Listen-Download im Browser nicht E2E geprüft |
 | **Cookie-Banner** | Lehnt Einwilligungsdialoge ab (OneTrust, Cookiebot, Usercentrics, Klaro, Didomi, Quantcast, generischer Erkenner) oder blendet sie nur aus (Modi Manuell/Ablehnen/Ausblenden). **Erteilt nie Zustimmung**, klickt keine Schaltfläche, die nach Zustimmung klingt, und blendet keine blockierenden Dialoge aus | 🧪 E2E gegen **nachgebaute** Dialoge; nicht gegen die Live-Skripte der Anbieter geprüft |
+| **Oberfläche** | Dashboard mit Übersicht (ehrlicher Modulstatus), gruppierter Navigation, Popup und Warnseite im gemeinsamen Design; hell/dunkel; Tokens gegen WCAG 2.2 AA geprüft; Struktur-, Kontrast- und Responsiv-Prüfungen im echten Firefox | ✅ E2E; **kein Test mit echten Screenreadern** |
 | **Einstellungen** | Versioniertes Schema, Migration, validierter Import/Export mit Rollback, Reset | ✅ E2E |
 | **Statistik/Log** | Optional, nur im Arbeitsspeicher, standardmäßig aus | ✅ |
 
@@ -68,7 +69,7 @@ Noch nicht umgesetzt (geplant, siehe [Roadmap](docs/ROADMAP.md)):
 - Vertrauenswürdige-Seiten-Verwaltung mit Container-Bindung und Wildcards in der Oberfläche
 - Berechtigungskontrolle (Kamera, Standort …), Referrer-Trimming per Header, statische Regelsätze für sehr große Listen
 - Cookie-Banner in fremden iFrames (z. B. Sourcepoint) und die Prüfung der Adapter gegen Live-Anbieter-Skripte
-- Die komplett neue, professionelle Oberfläche (aktuell: Popup, Optionsseite mit Schutzprofil-Tab)
+- Vollständige Umstellung der älteren Bereiche (URL-Bereinigung, Embeds, Statistik) auf die neuen Komponenten; Tests mit echten Screenreadern
 - Firefox für Android, Windows und Linux sind **nicht** getestet
 
 ## Was grundsätzlich nicht (zuverlässig) möglich ist

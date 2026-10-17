@@ -14,7 +14,7 @@ Legende: ✅ umgesetzt und getestet · 🧪 umgesetzt, experimentell/teilweise g
 | 7 | Consent-Manager (CMP-Adapter, Modi Manual/Reject/Hide) | 🧪 umgesetzt, E2E mit nachgebauten Dialogen; ⏳ Live-Anbieter prüfen, iFrame-Banner (Sourcepoint) |
 | 8 | Phishing-/Malware-URLs, Navigationsschutz | 🧪 lokale Listen, Warnseite, Userinfo-Warnung, E2E; ⏳ IDN/Homographen, echter Download im Browser, Lizenz vor Release erneut prüfen |
 | 9 | Social-Tracking erweitern, Berechtigungen (Kamera/Standort …) | ⏳ |
-| 10 | Neue Oberfläche (Dashboard, Komponenten), Barrierefreiheit | ⏳ |
+| 10 | Neue Oberfläche (Dashboard, Komponenten), Barrierefreiheit | ✅ Dashboard, Popup, Warnseite, Tokens, Struktur-/Kontrast-/Responsiv-Tests; ⏳ alte Bereiche auf Komponenten umstellen, Screenreader-Test, Zoom/Kontrastmodus |
 | 11 | Härtung: Berechtigungen reduzieren (`webRequest`, `declarativeNetRequestFeedback`), PSL, Mindestversionen, Windows/Linux/Android prüfen | ⏳ |
 
 ## Prinzipien für neue Funktionen
