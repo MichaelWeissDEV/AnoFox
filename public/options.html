@@ -5,41 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AnoFox - Privacy Dashboard</title>
 <style>
-  :root[data-theme="dark"], :root:not([data-theme="light"]) {
-    --bg-primary: #0e171d;
-    --bg-secondary: #142229;
-    --bg-card: #1a2c35;
-    --bg-card-hover: #1f3540;
-    --bg-input: #101c22;
-    --accent: #6ad7b0;
-    --accent-hover: #83e3c0;
-    --accent-text: #0b1a20;
-    --text-primary: #edf6f5;
-    --text-muted: #95b3b1;
-    --danger: #f87171;
-    --danger-hover: #ef4444;
-    --border: #284452;
-    --border-subtle: #1c303a;
-    --shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
-  }
-
-  :root[data-theme="light"] {
-    --bg-primary: #f5f8fa;
-    --bg-secondary: #ffffff;
-    --bg-card: #ffffff;
-    --bg-card-hover: #f8fafc;
-    --bg-input: #f1f5f9;
-    --accent: #0d9488;
-    --accent-hover: #0f766e;
-    --accent-text: #ffffff;
-    --text-primary: #0f172a;
-    --text-muted: #64748b;
-    --danger: #ef4444;
-    --danger-hover: #dc2626;
-    --border: #e2e8f0;
-    --border-subtle: #cbd5e1;
-    --shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
-  }
 
   * { box-sizing: border-box; }
 
@@ -52,23 +17,6 @@
     min-height: 100vh;
   }
 
-  header {
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
-    padding: 16px 32px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 50;
-  }
-
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
 
   .logo-title {
     font-size: 20px;
@@ -89,12 +37,6 @@
     border-radius: 4px;
     letter-spacing: 0.5px;
     text-transform: uppercase;
-  }
-
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
   }
 
   /* Theme Switcher Pills */
@@ -711,46 +653,142 @@
     margin-top: 2px;
   }
 </style>
+<link rel="stylesheet" href="ui.css">
 </head>
 <body>
 
-<header>
-  <div class="header-left">
-    <h1 class="logo-title">AnoFox <span class="logo-badge">Dashboard</span></h1>
+<a class="skip-link" href="#main">Zum Inhalt springen</a>
+
+<header class="topbar">
+  <div class="brand">
+    <img src="icons/icon-48.png" alt="" width="32" height="32">
+    <h1>AnoFox <span class="logo-badge">Dashboard</span></h1>
   </div>
-  <div class="header-right">
-    <div class="theme-selector" role="radiogroup" aria-label="Erscheinungsbild">
-      <button type="button" class="theme-btn" data-theme="dark" title="Dunkles Design">🌙 Dunkel</button>
-      <button type="button" class="theme-btn" data-theme="light" title="Helles Design">☀️ Hell</button>
-      <button type="button" class="theme-btn" data-theme="system" title="Systemstandard">💻 System</button>
-    </div>
+  <div class="theme-selector" role="group" aria-label="Erscheinungsbild">
+    <button type="button" class="theme-btn" data-theme="dark" aria-pressed="false">Dunkel</button>
+    <button type="button" class="theme-btn" data-theme="light" aria-pressed="false">Hell</button>
+    <button type="button" class="theme-btn" data-theme="system" aria-pressed="false">System</button>
   </div>
 </header>
 
-<div class="container">
-  <!-- Nav Tabs -->
-  <div class="nav-tabs" role="tablist">
-    <button type="button" class="tab-btn active" data-tab="tab-policy">🎛️ Schutzprofile</button>
-    <button type="button" class="tab-btn" data-tab="tab-embeds">🛡️ Social Embed Guard</button>
-    <button type="button" class="tab-btn" data-tab="tab-cleaner">🧹 URL-Tracking Cleaner</button>
-    <button type="button" class="tab-btn" data-tab="tab-stats">📊 Statistik & Einblicke</button>
-    <button type="button" class="tab-btn" data-tab="tab-terminal">⚙️ [AnoFox] Konsole & Log-Level</button>
-    <button type="button" class="tab-btn" data-tab="tab-backup">💾 Allgemein & Backup</button>
-  </div>
+<div class="layout">
+  <nav class="sidebar" aria-label="Bereiche">
+    <div class="nav-group">
+      <h2 class="nav-heading">Überblick</h2>
+      <ul><li><button type="button" class="nav-link" data-tab="tab-overview">Übersicht</button></li></ul>
+    </div>
+    <div class="nav-group">
+      <h2 class="nav-heading">Schutz</h2>
+      <ul>
+        <li><button type="button" class="nav-link" data-tab="tab-policy">Profile &amp; Module</button></li>
+        <li><button type="button" class="nav-link" data-tab="tab-rules">Regeln &amp; Ausnahmen</button></li>
+        <li><button type="button" class="nav-link" data-tab="tab-cleaner">URL-Bereinigung</button></li>
+        <li><button type="button" class="nav-link" data-tab="tab-embeds">Social Embeds</button></li>
+        <li><button type="button" class="nav-link" data-tab="tab-lists">Werbe- &amp; Tracker-Listen</button></li>
+        <li><button type="button" class="nav-link" data-tab="tab-threat">Phishing &amp; Malware</button></li>
+        <li><button type="button" class="nav-link" data-tab="tab-consent">Cookie-Banner</button></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h2 class="nav-heading">Daten &amp; Browser</h2>
+      <ul>
+        <li><button type="button" class="nav-link" data-tab="tab-storage">Cookies &amp; Website-Daten</button></li>
+        <li><button type="button" class="nav-link" data-tab="tab-fingerprint">Fingerprinting (nativ)</button></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <h2 class="nav-heading">System</h2>
+      <ul>
+        <li><button type="button" class="nav-link" data-tab="tab-stats">Statistik &amp; Einblicke</button></li>
+        <li><button type="button" class="nav-link" data-tab="tab-terminal">Konsole &amp; Log-Level</button></li>
+        <li><button type="button" class="nav-link" data-tab="tab-backup">Backup &amp; Zurücksetzen</button></li>
+      </ul>
+    </div>
+  </nav>
 
-  <!-- TAB 1: SOCIAL EMBED GUARD -->
-  <!-- TAB 0: PROFILES, MODULES, RULES -->
-  <div class="tab-pane active" id="tab-policy">
+  <main id="main" class="main" tabindex="-1">
+<div class="container">
+  <div class="tab-pane active" id="tab-overview">
     <div class="card">
       <div class="card-header"><div>
-        <h2 class="card-title">🎛️ Schutzprofile & Module</h2>
-        <p class="card-desc">Nur Module mit Kennzeichnung „aktiv erzwungen“ haben in dieser Version eine Wirkung.</p>
+        <h2 class="card-title">Übersicht</h2>
+        <p class="card-desc">Was AnoFox gerade schützt. Angezeigt wird nur, was in dieser Version tatsächlich erzwungen wird.</p>
       </div></div>
-      <div id="policy-root"></div>
+      <div id="mount-overview"></div>
     </div>
   </div>
 
-  <div class="tab-pane" id="tab-embeds">
+  <div class="tab-pane" id="tab-policy" hidden>
+    <div class="card">
+      <div class="card-header"><div>
+        <h2 class="card-title">Schutzprofile &amp; Module</h2>
+        <p class="card-desc">Profil und Stufen gelten browserweit. Nur Module mit „aktiv erzwungen“ haben eine Wirkung.</p>
+      </div></div>
+      <div id="mount-profiles"></div>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-rules" hidden>
+    <div class="card">
+      <div class="card-header"><div>
+        <h2 class="card-title">Regeln &amp; Ausnahmen</h2>
+        <p class="card-desc">Ausnahmen pro Website oder Ziel. Jede Regel gilt nur für ihr Modul; ein Profilwechsel löscht sie nicht.</p>
+      </div></div>
+      <div id="mount-rules"></div>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-lists" hidden>
+    <div class="card">
+      <div class="card-header"><div>
+        <h2 class="card-title">Werbe- &amp; Tracker-Listen</h2>
+        <p class="card-desc">Experimentell. Listen sind standardmäßig aus.</p>
+      </div></div>
+      <div id="mount-lists"></div>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-threat" hidden>
+    <div class="card">
+      <div class="card-header"><div>
+        <h2 class="card-title">Phishing &amp; Malware</h2>
+        <p class="card-desc">Lokaler Abgleich mit Listen, keine Cloud-Abfrage.</p>
+      </div></div>
+      <div id="mount-threat"></div>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-consent" hidden>
+    <div class="card">
+      <div class="card-header"><div>
+        <h2 class="card-title">Cookie-Banner</h2>
+        <p class="card-desc">Ablehnen oder ausblenden, nie zustimmen.</p>
+      </div></div>
+      <div id="mount-consent"></div>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-storage" hidden>
+    <div class="card">
+      <div class="card-header"><div>
+        <h2 class="card-title">Cookies &amp; Website-Daten</h2>
+        <p class="card-desc">Cookie Vault: Richtlinie pro Website.</p>
+      </div></div>
+      <div id="mount-storage"></div>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-fingerprint" hidden>
+    <div class="card">
+      <div class="card-header"><div>
+        <h2 class="card-title">Fingerprinting (nativ)</h2>
+        <p class="card-desc">Native Firefox-Einstellungen, gelten für den ganzen Browser.</p>
+      </div></div>
+      <div id="mount-native"></div>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-embeds" hidden>
     <div class="card">
       <div class="card-header">
         <div>
@@ -758,7 +796,7 @@
           <div class="card-desc">Blockiert 3rd-Party Social Media Embeds und Widgets vor dem Aufbau von Netzwerkverbindungen.</div>
         </div>
         <label class="switch">
-          <input type="checkbox" id="embeds-master-toggle" checked>
+          <input type="checkbox" role="switch" id="embeds-master-toggle" aria-label="Social Embed Guard einschalten" checked>
           <span class="slider"></span>
         </label>
       </div>
@@ -779,12 +817,12 @@
       <div class="card-desc">Websites, auf denen Social Embeds ohne Platzhalter sofort geladen werden dürfen.</div>
 
       <div class="form-row">
-        <input type="text" id="embed-domain-input" placeholder="z. B. blog.company.org oder news-site.de">
+        <input type="text" id="embed-domain-input" aria-label="Website für Embed-Ausnahme" placeholder="z. B. blog.company.org oder news-site.de">
         <button type="button" id="embed-domain-add-btn" class="btn-accent">+ Hinzufügen</button>
       </div>
 
       <div class="form-row" style="margin-top: 10px;">
-        <input type="text" id="embed-domain-search" placeholder="🔍 Ausnahmen durchsuchen...">
+        <input type="text" id="embed-domain-search" aria-label="Embed-Ausnahmen durchsuchen" placeholder="🔍 Ausnahmen durchsuchen...">
         <button type="button" id="embed-clear-all-btn" class="btn-danger">Alle entfernen</button>
       </div>
 
@@ -795,7 +833,7 @@
   </div>
 
   <!-- TAB 2: URL TRACKING CLEANER -->
-  <div class="tab-pane" id="tab-cleaner">
+  <div class="tab-pane" id="tab-cleaner" hidden>
     <div class="card">
       <div class="card-header">
         <div>
@@ -803,7 +841,7 @@
           <div class="card-desc">Entfernt Tracking-Parameter per DeclarativeNetRequest vor der Netzwerkübertragung.</div>
         </div>
         <label class="switch">
-          <input type="checkbox" id="cleaner-master-toggle" checked>
+          <input type="checkbox" role="switch" id="cleaner-master-toggle" aria-label="URL-Tracking-Bereinigung einschalten" checked>
           <span class="slider"></span>
         </label>
       </div>
@@ -815,12 +853,12 @@
       <div class="card-desc">Websites, auf denen URLs niemals bereinigt oder modifiziert werden.</div>
 
       <div class="form-row">
-        <input type="text" id="cleaner-domain-input" placeholder="z. B. shop.example.com">
+        <input type="text" id="cleaner-domain-input" aria-label="Website für Bereinigungs-Ausnahme" placeholder="z. B. shop.example.com">
         <button type="button" id="cleaner-domain-add-btn" class="btn-accent">+ Hinzufügen</button>
       </div>
 
       <div class="form-row" style="margin-top: 10px;">
-        <input type="text" id="cleaner-domain-search" placeholder="🔍 Ausnahmen durchsuchen...">
+        <input type="text" id="cleaner-domain-search" aria-label="Bereinigungs-Ausnahmen durchsuchen" placeholder="🔍 Ausnahmen durchsuchen...">
         <button type="button" id="cleaner-clear-all-btn" class="btn-danger">Alle entfernen</button>
       </div>
 
@@ -840,7 +878,7 @@
   </div>
 
   <!-- TAB 3: STATISTIK & EINBLICKE -->
-  <div class="tab-pane" id="tab-stats">
+  <div class="tab-pane" id="tab-stats" hidden>
     <!-- Privacy & Ephemerality Notice -->
     <div class="privacy-notice-box">
       <div class="privacy-notice-icon">🔒</div>
@@ -864,7 +902,7 @@
           <div class="card-desc">Erhebt während dieser Sitzung Zähler über geblockte Tracking-Inhalte und führt ein internes Protokoll.</div>
         </div>
         <label class="switch">
-          <input type="checkbox" id="stats-master-toggle">
+          <input type="checkbox" role="switch" id="stats-master-toggle" aria-label="Temporäre Statistik einschalten">
           <span class="slider"></span>
         </label>
       </div>
@@ -937,7 +975,7 @@
         </div>
 
         <div class="form-row" style="margin-top: 10px; margin-bottom: 10px;">
-          <input type="text" id="insights-search-input" placeholder="🔍 Einblicke nach Domain oder Details filtern...">
+          <input type="text" id="insights-search-input" aria-label="Einblicke filtern" placeholder="🔍 Einblicke nach Domain oder Details filtern...">
         </div>
 
         <div class="insights-table-wrapper">
@@ -967,7 +1005,7 @@
             <div class="card-desc">Eigenständiges, internes Protokoll im Speicher – völlig unabhängig von der Browser-Konsole.</div>
           </div>
           <div>
-            <select id="internal-log-level-filter" style="font-size: 11px; padding: 4px 8px; width: auto;">
+            <select id="internal-log-level-filter" aria-label="Log-Level filtern" style="font-size: 11px; padding: 4px 8px; width: auto;">
               <option value="ALL">Alle Level</option>
               <option value="DEBUG">DEBUG</option>
               <option value="INFO" selected>INFO & höher</option>
@@ -985,7 +1023,7 @@
   </div>
 
   <!-- TAB 4: [ANOFOX] KONSOLE & LOG-LEVEL -->
-  <div class="tab-pane" id="tab-terminal">
+  <div class="tab-pane" id="tab-terminal" hidden>
     <div class="card">
       <div class="card-header">
         <div>
@@ -993,14 +1031,14 @@
           <div class="card-desc">Reguliert die Ausgabe von AnoFox-Meldungen in der Entwickler- oder Terminal-Konsole (`web-ext run`).</div>
         </div>
         <label class="switch">
-          <input type="checkbox" id="terminal-master-toggle" checked>
+          <input type="checkbox" role="switch" id="terminal-master-toggle" aria-label="Konsolen-Logging einschalten" checked>
           <span class="slider"></span>
         </label>
       </div>
 
       <div style="margin-top: 16px;">
         <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Allgemeines Log-Level</label>
-        <select id="options-log-severity" style="margin-top: 6px;">
+        <select id="options-log-severity" aria-label="Log-Level der Konsole" style="margin-top: 6px;">
           <option value="DEBUG">DEBUG - Ausführliche Diagnose & Netzwerk-Details</option>
           <option value="INFO" selected>INFO - URL-Bereinigungen & Social Embed Events</option>
           <option value="WARN">WARN - Warnungen & Redirect-Loop-Erkennung</option>
@@ -1026,7 +1064,7 @@
   </div>
 
   <!-- TAB 4: ALLGEMEIN & BACKUP -->
-  <div class="tab-pane" id="tab-backup">
+  <div class="tab-pane" id="tab-backup" hidden>
     <div class="card">
       <h2 class="card-title">Konfiguration sichern & wiederherstellen</h2>
       <div class="card-desc">Exportieren Sie Ihre Listen und Einstellungen als JSON-Datei oder laden Sie ein Backup.</div>
@@ -1047,8 +1085,10 @@
     </div>
   </div>
 </div>
+  </main>
+</div>
 
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <script src="options.js"></script>
 </body>

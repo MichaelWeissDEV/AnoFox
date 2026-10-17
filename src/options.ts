@@ -24,7 +24,7 @@ let cachedInternalLogs: InternalLogEntry[] = [];
 
 // UI Elements
 const themeBtns = document.querySelectorAll<HTMLButtonElement>('.theme-btn');
-const tabBtns = document.querySelectorAll<HTMLButtonElement>('.tab-btn');
+const navLinks = document.querySelectorAll<HTMLButtonElement>('.nav-link');
 const tabPanes = document.querySelectorAll<HTMLElement>('.tab-pane');
 
 const embedsMasterToggle = document.querySelector<HTMLInputElement>('#embeds-master-toggle')!;
@@ -75,11 +75,12 @@ let toastTimeout: ReturnType<typeof setTimeout> | null = null;
 
 function showToast(message: string): void {
   if (toastTimeout) clearTimeout(toastTimeout);
+  // the element stays in the DOM (aria-live="polite"), so screen readers announce the changed text
   toastEl.textContent = message;
-  toastEl.style.display = 'flex';
+  toastEl.classList.add('show');
   toastTimeout = setTimeout(() => {
-    toastEl.style.display = 'none';
-  }, 2800);
+    toastEl.classList.remove('show');
+  }, 3500);
 }
 
 // Apply Theme
@@ -94,6 +95,7 @@ function applyTheme(theme: 'system' | 'dark' | 'light'): void {
 
   themeBtns.forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.theme === theme);
+    btn.setAttribute('aria-pressed', String(btn.dataset.theme === theme));
   });
 }
 
@@ -103,21 +105,31 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e)
   }
 });
 
-// Tab Navigation
-tabBtns.forEach((btn) => {
-  btn.addEventListener('click', () => {
-    const targetTabId = btn.dataset.tab;
-    tabBtns.forEach((b) => b.classList.toggle('active', b === btn));
-    tabPanes.forEach((pane) => pane.classList.toggle('active', pane.id === targetTabId));
-
-    if (targetTabId === 'tab-policy') {
-      void policyPanel.render();
-    }
-    if (targetTabId === 'tab-stats') {
-      void fetchAndRenderStats();
-    }
-  });
+// Navigation: sidebar buttons with aria-current, panes hidden via the `hidden` attribute, deep links via #hash
+const mainEl = document.querySelector<HTMLElement>('#main')!;
+const POLICY_TABS = new Set(['tab-overview', 'tab-policy', 'tab-rules', 'tab-lists', 'tab-threat', 'tab-consent', 'tab-storage', 'tab-fingerprint']);
+navLinks.forEach((btn) => {
+  const pane = document.getElementById(btn.dataset.tab ?? '');
+  if (pane) { pane.setAttribute('role', 'region'); pane.setAttribute('aria-label', btn.textContent?.trim() ?? ''); }
 });
+
+function showTab(requested: string, opts: { focus?: boolean; updateHash?: boolean } = {}): void {
+  const id = document.getElementById(requested)?.classList.contains('tab-pane') ? requested : 'tab-overview';
+  let label = '';
+  navLinks.forEach((b) => {
+    const on = b.dataset.tab === id;
+    if (on) { b.setAttribute('aria-current', 'page'); label = b.textContent?.trim() ?? ''; } else b.removeAttribute('aria-current');
+  });
+  tabPanes.forEach((pane) => { const on = pane.id === id; pane.classList.toggle('active', on); pane.hidden = !on; });
+  document.title = `AnoFox – ${label}`;
+  if (opts.updateHash !== false && location.hash !== `#${id}`) history.pushState(null, '', `#${id}`);
+  if (opts.focus) mainEl.focus({ preventScroll: false });
+  if (POLICY_TABS.has(id)) void policyPanel.render();
+  if (id === 'tab-stats') void fetchAndRenderStats();
+}
+
+navLinks.forEach((btn) => btn.addEventListener('click', () => showTab(btn.dataset.tab ?? 'tab-overview', { focus: true })));
+window.addEventListener('hashchange', () => showTab(location.hash.slice(1), { updateHash: false }));
 
 // Theme switcher
 themeBtns.forEach((btn) => {
@@ -187,6 +199,8 @@ function renderProviders(): void {
 
     const toggle = document.createElement('input');
     toggle.type = 'checkbox';
+    toggle.setAttribute('role', 'switch');
+    toggle.setAttribute('aria-label', `${provider.name} blockieren`);
     toggle.id = `provider-${provider.id}`;
     toggle.checked = isEnabled;
 
@@ -688,12 +702,15 @@ async function init(): Promise<void> {
   await fetchAndRenderStats();
 }
 
+const mount = (id: string) => document.querySelector<HTMLElement>(`#mount-${id}`)!;
 const policyPanel = initPolicyPanel(
-  document.querySelector<HTMLElement>('#policy-root')!,
+  { overview: mount('overview'), profiles: mount('profiles'), rules: mount('rules'), native: mount('native'), storage: mount('storage'),
+    consent: mount('consent'), threat: mount('threat'), lists: mount('lists') },
   () => currentSettings,
   (s) => { currentSettings = s; },
-  (m) => showToast(m)
+  (m) => showToast(m),
+  (tabId) => showTab(tabId, { focus: true })
 );
-void policyPanel.render();
+showTab(location.hash.slice(1) || 'tab-overview', { updateHash: false });
 
 void init();

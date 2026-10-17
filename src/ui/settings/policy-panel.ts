@@ -8,6 +8,7 @@ import { effectiveLevels } from '../../core/policy-engine/policy.ts';
 import { MODULE_INFO, PROFILE_INFO, LEVEL_LABEL } from '../../core/capabilities/modules.ts';
 import type { AnoFoxSettings } from '../../core/settings/settings.ts';
 import { sanitizeDomainList } from '../../core/domain-utils/domains.ts';
+import { h, chip, notice, button, keepFocus } from '../components/dom.ts';
 
 interface ThreatListState { enabled: boolean; installed?: boolean; ruleCount?: number; lastError?: string; current?: { filterCount: number; fetchedAt: number } }
 const RULE_MODULES: ModuleId[] = ['scripts', 'inline', 'network', 'adblock', 'consent'];
@@ -22,11 +23,24 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   return e;
 }
 
+export interface PolicyMounts {
+  overview: HTMLElement; profiles: HTMLElement; rules: HTMLElement; native: HTMLElement;
+  storage: HTMLElement; consent: HTMLElement; threat: HTMLElement; lists: HTMLElement;
+}
+
+/** Which settings area a module is configured in (used by the overview's "Konfigurieren" links). */
+const MODULE_TAB: Partial<Record<ModuleId, string>> = {
+  tracking: 'tab-cleaner', social: 'tab-embeds', network: 'tab-rules', scripts: 'tab-rules', inline: 'tab-rules',
+  adblock: 'tab-lists', malware: 'tab-threat', phishing: 'tab-threat', consent: 'tab-consent',
+  cookies: 'tab-storage', storage: 'tab-storage', fingerprint: 'tab-fingerprint'
+};
+
 export function initPolicyPanel(
-  root: HTMLElement,
+  mounts: PolicyMounts,
   getSettings: () => AnoFoxSettings,
   setSettings: (s: AnoFoxSettings) => void,
-  toast: (msg: string) => void
+  toast: (msg: string) => void,
+  navigate: (tabId: string) => void
 ): { render: () => Promise<void> } {
   async function refresh(): Promise<void> {
     const res = await browser.runtime.sendMessage({ type: 'GET_SETTINGS' });
@@ -47,11 +61,22 @@ export function initPolicyPanel(
 
   async function render(): Promise<void> {
     await refresh();
-    const s = getSettings();
-    const levels = effectiveLevels({ profile: s.profile, customLevels: s.customLevels, rules: s.rules });
-    root.replaceChildren();
+    await keepFocus(document.body, async () => {
+      const s = getSettings();
+      const levels = effectiveLevels({ profile: s.profile, customLevels: s.customLevels, rules: s.rules });
+      for (const m of Object.values(mounts)) m.replaceChildren();
+      await renderOverview(mounts.overview, s, levels);
+      renderProfiles(mounts.profiles, s, levels);
+      await renderRules(mounts.rules, s, levels);
+      await renderNative(mounts.native);
+      await renderStorage(mounts.storage);
+      await renderConsent(mounts.consent);
+      await renderThreat(mounts.threat);
+      await renderLists(mounts.lists);
+    });
+  }
 
-    // Profiles
+  function renderProfiles(into: HTMLElement, s: AnoFoxSettings, levels: Record<ModuleId, Level>): void {
     const profiles = el('div', 'policy-profiles');
     (['balanced', 'strict', 'lockdown', 'custom'] as ProfileId[]).forEach((id) => {
       const b = el('button', 'policy-profile' + (s.profile === id ? ' selected' : ''));
@@ -67,8 +92,8 @@ export function initPolicyPanel(
       });
       profiles.append(b);
     });
-    root.append(profiles);
-    root.append(el('p', 'policy-note',
+    into.append(profiles);
+    into.append(el('p', 'policy-note',
       'Profil und Modulstufen gelten browserweit für alle Websites. Ausnahmen pro Website legst du unten als Regeln an; ein Profilwechsel löscht sie nicht.'));
 
     // Modules
@@ -78,8 +103,8 @@ export function initPolicyPanel(
       const row = el('div', 'policy-module' + (info.enforced ? '' : ' inactive'));
       const text = el('div');
       const title = el('strong', undefined, info.label);
-      const chip = el('span', 'chip ' + (info.enforced ? 'ok' : 'todo'), info.enforced ? 'aktiv erzwungen' : 'nicht implementiert');
-      text.append(title, document.createTextNode(' '), chip, el('div', 'policy-desc', info.description), el('div', 'policy-desc', info.note));
+      const chipEl = el('span', 'chip ' + (info.enforced ? 'ok' : 'todo'), info.enforced ? 'aktiv erzwungen' : 'nicht implementiert');
+      text.append(title, document.createTextNode(' '), chipEl, ...(info.experimental ? [document.createTextNode(' '), el('span', 'chip todo', 'experimentell')] : []), el('div', 'policy-desc', info.description), el('div', 'policy-desc', info.note));
       const sel = el('select');
       sel.setAttribute('aria-label', `Stufe für ${info.label}`);
       (['off', 'balanced', 'strict', 'lockdown'] as Level[]).forEach((l) => {
@@ -103,13 +128,10 @@ export function initPolicyPanel(
       row.append(text, sel);
       table.append(row);
     }
-    root.append(table);
-    await renderNative(root);
-    await renderStorage(root);
-    await renderConsent(root);
+    into.append(table);
+  }
 
-    // Rules
-    root.append(el('h3', 'policy-h', 'Regeln für Skripte und Netzwerk'));
+  async function renderRules(into: HTMLElement, s: AnoFoxSettings, levels: Record<ModuleId, Level>): Promise<void> {
     const form = el('div', 'policy-form');
     const mod = el('select'); mod.setAttribute('aria-label', 'Modul');
     RULE_MODULES.forEach((m) => { const o = el('option', undefined, MODULE_INFO[m].label); o.value = m; mod.append(o); });
@@ -136,7 +158,7 @@ export function initPolicyPanel(
       if (await send({ type: 'ADD_USER_RULE', rule })) { toast('Regel gespeichert'); await render(); }
     });
     form.append(mod, effect, site, target, dur, add);
-    root.append(form);
+    into.append(form);
 
     const unsupported = await browser.runtime.sendMessage({ type: 'GET_POLICY_STATUS' }).catch(() => null);
     const bad = new Map<string, string>(((unsupported?.unsupported ?? []) as Array<{ ruleId: string; reason: string }>).map((u) => [u.ruleId, u.reason]));
@@ -158,11 +180,80 @@ export function initPolicyPanel(
       row.append(del);
       list.append(row);
     }
-    root.append(list);
-    await renderThreat(root);
-    await renderLists(root);
-    root.append(el('p', 'policy-note',
+    into.append(list);
+    into.append(el('p', 'policy-note',
       'Hinweis: Website-Regeln für Skripte und Netzwerk greifen auf die Seite, die die Anfrage auslöst (Initiator). Regeln für Inline-Skripte gelten für die Dokument-Domain (ohne Ziel, nur Sitzung/dauerhaft) und wirken erst nach dem Neuladen der Seite.'));
+  }
+
+  async function renderOverview(into: HTMLElement, s: AnoFoxSettings, levels: Record<ModuleId, Level>): Promise<void> {
+    const ask = (type: string) => browser.runtime.sendMessage({ type }).catch(() => null);
+    const [threat, lists, native, stats] = await Promise.all([ask('GET_THREAT_STATUS'), ask('GET_LISTS'), ask('GET_NATIVE_STATUS'), ask('GET_STATS_AND_LOGS')]);
+
+    // profile summary
+    const head = h('div', { class: 'ui-card' });
+    head.append(
+      h('h3', { text: `Aktives Profil: ${PROFILE_INFO[s.profile].label}` }),
+      h('p', { class: 'ui-muted', text: PROFILE_INFO[s.profile].description })
+    );
+    const enforced = MODULE_ORDER.filter((m) => MODULE_INFO[m].enforced);
+    const active = enforced.filter((m) => levels[m] !== 'off');
+    head.append(h('p', { text: `${active.length} von ${enforced.length} umgesetzten Modulen sind eingeschaltet. ${MODULE_ORDER.length - enforced.length} Module sind in dieser Version noch nicht umgesetzt.` }));
+    const row = h('div', { class: 'ui-row' });
+    row.append(button('Profil wechseln', () => navigate('tab-policy'), { primary: true }));
+    head.append(row);
+    into.append(head);
+
+    // things that need attention (only truthful, computed from real status)
+    const hints: HTMLElement[] = [];
+    const threatLists = (threat?.lists ?? []) as Array<{ state: { enabled: boolean; lastError?: string } }>;
+    if ((levels.malware !== 'off' || levels.phishing !== 'off') && threat?.success && !threatLists.some((l) => l.state.enabled)) {
+      hints.push(notice('warn', 'Phishing- und Malware-Listen sind nicht aktiviert', 'Ohne Liste erkennt dieses Modul nichts. Aktiviere mindestens eine Liste.'));
+    }
+    if (threatLists.some((l) => l.state.lastError)) hints.push(notice('warn', 'Eine Phishing-/Malware-Liste meldet einen Fehler', 'Die vorherige Version bleibt aktiv. Details im Bereich „Phishing & Malware“.'));
+    const adLists = (lists?.lists ?? []) as Array<{ state: { enabled: boolean } }>;
+    if (levels.adblock !== 'off' && lists?.success && !adLists.some((l) => l.state.enabled)) {
+      hints.push(notice('info', 'Werbeblocker-Listen sind aus', 'Der Werbeblocker (experimentell) wirkt erst, wenn du eine Liste aktivierst.'));
+    }
+    const nativeProblems = ((native?.status ?? []) as Array<{ action: string; label: string; detail?: string }>).filter((x) => x.action === 'blocked' || x.action === 'error');
+    for (const p of nativeProblems) hints.push(notice('warn', `Native Einstellung nicht änderbar: ${p.label}`, p.detail ?? 'Eine Richtlinie oder andere Erweiterung kontrolliert sie.'));
+    if (s.profile === 'balanced') hints.push(notice('info', 'Balanced blockiert keine Skripte', 'Für Drittanbieter-Skripte wähle Strict, für gar kein JavaScript Lockdown. Websites können dann eingeschränkt funktionieren.'));
+    if (hints.length) { const box = h('div'); box.setAttribute('aria-label', 'Hinweise'); box.setAttribute('role', 'region'); for (const x of hints) box.append(x); into.append(box); }
+
+    // module grid
+    into.append(h('h3', { class: 'policy-h', text: 'Module' }));
+    const grid = h('div', { class: 'ui-grid' });
+    for (const m of MODULE_ORDER) {
+      const info = MODULE_INFO[m];
+      const card = h('div', { class: 'ui-card' });
+      card.append(h('h3', { text: info.label }));
+      const badges = h('div', { class: 'ui-row' });
+      if (info.enforced) {
+        badges.append(chip(levels[m] === 'off' ? 'aus' : LEVEL_LABEL[levels[m]], levels[m] === 'off' ? 'warn' : 'ok'), chip('aktiv erzwungen', 'neutral'));
+        if (info.experimental) badges.append(chip('experimentell', 'warn'));
+      } else {
+        badges.append(chip('nicht implementiert', 'warn'));
+      }
+      card.append(badges, h('p', { class: 'ui-muted', text: info.description }));
+      const tab = MODULE_TAB[m];
+      if (tab && info.enforced) card.append(button('Konfigurieren', () => navigate(tab)));
+      grid.append(card);
+    }
+    into.append(grid);
+
+    // session counters only if the user enabled the (RAM-only) statistics
+    const snap = stats?.success && stats.statsEnabled ? stats.statistics : null;
+    if (snap) {
+      into.append(h('h3', { class: 'policy-h', text: 'Diese Sitzung (nur im Arbeitsspeicher)' }));
+      const g2 = h('div', { class: 'ui-grid' });
+      for (const [label, value] of [['Blockiert gesamt', snap.totalBlocked], ['URLs bereinigt', snap.totalCleanedUrls], ['Embeds blockiert', snap.totalBlockedEmbeds]] as Array<[string, number]>) {
+        const c = h('div', { class: 'ui-card' });
+        c.append(h('div', { class: 'ui-stat', text: String(value) }), h('p', { class: 'ui-muted', text: label }));
+        g2.append(c);
+      }
+      into.append(g2);
+    } else {
+      into.append(h('p', { class: 'ui-muted', text: 'Statistik ist aus (Standard): AnoFox zählt nichts. Du kannst sie im Bereich „Statistik & Einblicke“ einschalten; sie bleibt im Arbeitsspeicher.' }));
+    }
   }
 
   async function renderConsent(into: HTMLElement): Promise<void> {

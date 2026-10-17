@@ -57,7 +57,7 @@ function applyTheme(theme: ThemePreference): void {
   const root = document.documentElement;
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   root.setAttribute('data-theme', isDark ? 'dark' : 'light');
-  themeToggleBtn.textContent = isDark ? '🌙' : '☀️';
+  themeToggleBtn.textContent = isDark ? '\u263E' : '\u2600';
   themeToggleBtn.title = isDark ? 'Zu hellem Design wechseln' : 'Zu dunklem Design wechseln';
 }
 
