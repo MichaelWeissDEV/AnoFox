@@ -384,6 +384,123 @@ async function main(): Promise<void> {
     eq((await send({ type: 'GET_CONSENT_STATUS' })).setting, 'auto', 'unchanged');
   });
 
+
+  // ---------------------------------------------------------------- phishing / malware protection (local lists only)
+  const M = 'anofox-m.test';
+  const M2 = 'anofox-m2.test';
+  const P = 'login.anofox-p.test';
+  const applyThreat = async (): Promise<void> => {
+    assert((await send({ type: 'E2E_APPLY_THREAT_DOMAINS', listId: 'urlhaus-online', domains: [M, M2] })).success, 'e2e hook (malware)');
+    assert((await send({ type: 'E2E_APPLY_THREAT_DOMAINS', listId: 'phishing-filter', domains: [P] })).success, 'e2e hook (phishing)');
+  };
+  const isWarning = (url: string | undefined) => !!url && /^moz-extension:\/\/[^/]+\/blocked\.html\?l=/.test(url);
+  const nav = async (url: string): Promise<{ tab: browser.tabs.Tab; finalUrl: string }> => {
+    const tab = await openTab(url);
+    const t = await browser.tabs.get(tab.id!);
+    return { tab: t, finalUrl: t.url ?? '' };
+  };
+  const warningView = (): any => (browser as any).extension.getViews({ type: 'tab' }).find((v: Window) => v.location.href.includes('/blocked.html'));
+  await reset();
+  await applyThreat();
+  await check('threat: lists are off by default and the status API lists all sources with license and attribution', async () => {
+    const st = await send({ type: 'GET_THREAT_STATUS' });
+    assert(st.success && st.lists.length >= 3, 'lists');
+    assert(st.lists.every((l: any) => l.state.enabled === false && l.license && l.attribution), 'all disabled with license text');
+  });
+  await check('threat: a listed malware host is replaced by the warning page BEFORE the network', async () => {
+    await serverReset();
+    const { tab, finalUrl } = await nav(`http://${M}/payload?x=1&y=2#f`);
+    assert(isWarning(finalUrl), 'not redirected: ' + finalUrl);
+    assert(finalUrl.includes(`l=urlhaus-online&u=http://${M}/payload?x=1&y=2#f`), 'warning must carry list id and the original URL: ' + finalUrl);
+    assert(!(await serverLog()).some((r) => r.host === M), 'request must never reach the server');
+    await browser.tabs.remove(tab.id!);
+  });
+  await check('threat: subdomains of a listed host and the phishing list are blocked too; unlisted hosts load', async () => {
+    await serverReset();
+    for (const [url, list] of [[`http://sub.deep.${M}/x`, 'urlhaus-online'], [`http://${P}/signin`, 'phishing-filter']] as const) {
+      const { tab, finalUrl } = await nav(url);
+      assert(isWarning(finalUrl) && finalUrl.includes(`l=${list}`), `${url} -> ${finalUrl}`);
+      await browser.tabs.remove(tab.id!);
+    }
+    const ok = await nav(`http://${B}/clean`);
+    assert(!isWarning(ok.finalUrl), 'unlisted host must load');
+    await browser.tabs.remove(ok.tab.id!);
+    const log = await serverLog();
+    assert(!log.some((r) => r.host.endsWith(M) || r.host === P) && log.some((r) => r.host === B), 'server log ' + JSON.stringify(log));
+  });
+  await check('threat: subresources (script, image) from a listed host are blocked inside an ordinary page', async () => {
+    await serverReset();
+    const title = await withTab(`http://${A}/threat-sub.html`, async (tab) => { await sleep(1200); return titleOf(tab.id!); });
+    eq(title, 'page', 'page itself loads');
+    assert(!(await serverLog()).some((r) => r.host === M), 'no request to the listed host');
+  });
+  await check('threat: warning page "open anyway" lifts the block for that host only and for the chosen time', async () => {
+    await serverReset();
+    const { tab } = await nav(`http://${M}/payload`);
+    assert(isWarning(tab.url), 'warning shown');
+    const view = warningView();
+    assert(view, 'warning view');
+    eq(view.document.getElementById('host').textContent, M, 'host shown');
+    (view.document.getElementById('duration') as HTMLSelectElement).value = '10';
+    (view.document.getElementById('proceed') as HTMLButtonElement).click();
+    let reached = false;
+    for (let i = 0; i < 30 && !reached; i++) { await sleep(300); reached = (await serverLog()).some((r) => r.host === M && r.url === '/payload'); }
+    assert(reached, 'after "open anyway" the request must reach the server');
+    await browser.tabs.remove(tab.id!);
+    const other = await nav(`http://${M2}/x`);
+    assert(isWarning(other.finalUrl), 'other listed host stays blocked');
+    await browser.tabs.remove(other.tab.id!);
+    const again = await nav(`http://${M}/again`);
+    assert(!isWarning(again.finalUrl), 'bypass persists for the host');
+    await browser.tabs.remove(again.tab.id!);
+  });
+  await check('threat: only the real warning page may grant a bypass (messages from anywhere else are refused)', async () => {
+    eq((await send({ type: 'THREAT_BYPASS', duration: 'session' })).success, false, 'driver page is not the warning page');
+  });
+  await check('threat: adblock pause and the URL cleaner never lift a threat block', async () => {
+    await reset();
+    await applyThreat();
+    await send({ type: 'ADD_USER_RULE', rule: { module: 'adblock', effect: 'allow', duration: 'permanent', scope: { kind: 'site', site: A } } });
+    await serverReset();
+    await withTab(`http://${A}/threat-sub.html`, async () => { await sleep(1200); });
+    assert(!(await serverLog()).some((r) => r.host === M), 'paused adblock must not unblock malware');
+    const { tab, finalUrl } = await nav(`http://${M}/x?utm_source=a`);
+    assert(isWarning(finalUrl), 'cleaner redirect must not bypass the warning: ' + finalUrl);
+    await browser.tabs.remove(tab.id!);
+  });
+  await check('threat: deceptive user-info URL ("trusted-name@other-server") is stopped before the network and can be opened on purpose', async () => {
+    await reset();
+    await serverReset();
+    const { tab, finalUrl } = await nav(`http://paypal.com@${B}/clean?z=1`);
+    assert(isWarning(finalUrl) && finalUrl.includes('l=userinfo'), 'not warned: ' + finalUrl);
+    assert(!(await serverLog()).some((r) => r.host === B), 'no request before the user decides');
+    const view = warningView();
+    (view.document.getElementById('proceed') as HTMLButtonElement).click();
+    let reached = false;
+    for (let i = 0; i < 30 && !reached; i++) { await sleep(300); reached = (await serverLog()).some((r) => r.host === B); }
+    const t2 = await browser.tabs.get(tab.id!);
+    const rules = await browser.declarativeNetRequest.getSessionRules();
+    assert(reached, 'user can still open it deliberately; tab=' + t2.url + ' sessionRules=' + JSON.stringify(rules.map((r) => [r.id, r.condition.requestDomains])) + ' log=' + JSON.stringify(await serverLog()));
+    await browser.tabs.remove(tab.id!);
+  });
+  await check('threat: module "Phishing" off switches the deceptive-URL warning off', async () => {
+    await reset();
+    await send({ type: 'SET_MODULE_LEVEL', module: 'phishing', level: 'off' });
+    await serverReset();
+    const { tab, finalUrl } = await nav(`http://paypal.com@${B}/clean?z=2`);
+    assert(!isWarning(finalUrl), 'must not warn when the module is off: ' + finalUrl);
+    await browser.tabs.remove(tab.id!);
+  });
+  await check('threat: reset removes list rules and revokes bypasses', async () => {
+    await reset();
+    await applyThreat();
+    await reset();
+    await serverReset();
+    const { tab, finalUrl } = await nav(`http://${M}/after-reset`);
+    assert(!isWarning(finalUrl), 'rules must be gone after reset: ' + finalUrl);
+    await browser.tabs.remove(tab.id!);
+  });
+
   // ---------------------------------------------------------------- native Firefox settings
   await reset();
   await check('native: strict profile enables resistFingerprinting browser-wide and takes control; balanced releases it', async () => {

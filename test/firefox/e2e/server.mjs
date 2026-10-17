@@ -53,6 +53,7 @@ const server = http.createServer((req, res) => {
     case '/__ping': console.log('PING', u.searchParams.get('m')); return send('text/plain', 'ok');
     case '/__log': return send('application/json', JSON.stringify(requests));
     case '/__reset': requests.length = 0; return send('text/plain', 'ok');
+    case '/threat-sub.html': return send('text/html', '<!doctype html><title>page</title><script src="http://anofox-m.test/s.js"></script><img src="http://anofox-m.test/i.png"><p>content</p>');
     case '/cmp/page.html': { // generic dispatcher: /cmp/page.html?f=<fixture>
       const name = u.searchParams.get('f');
       const html = CMPS[name];
