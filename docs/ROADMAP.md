@@ -11,7 +11,7 @@ Legende: ✅ umgesetzt und getestet · 🧪 umgesetzt, experimentell/teilweise g
 | 4 | Script-Control | ✅ extern + CSP-Inline/eval/Wasm; ⏳ Click-to-Allow, Script Inspector; ⛔ Einmal-Freigaben, Inline-Überwachung |
 | 5 | Anti-Fingerprinting | 🧪 native Mechanismen; ⛔ Navigator-Normalisierung (nachweislich erkennbar); ⏳ Canvas/WebGL/Audio-Maßnahmen nur mit Wirkungs- und Konsistenznachweis |
 | 6 | Cookie Vault / Speicher | ✅ Kern + E2E; ⏳ Allowlist mit Container/Wildcards in der UI, Datenalter, Drittanbieter-Sweep, SSO-Prüfung |
-| 7 | Consent-Manager (CMP-Adapter, Modi Manual/Reject/Hide) | ⏳ |
+| 7 | Consent-Manager (CMP-Adapter, Modi Manual/Reject/Hide) | 🧪 umgesetzt, E2E mit nachgebauten Dialogen; ⏳ Live-Anbieter prüfen, iFrame-Banner (Sourcepoint) |
 | 8 | Phishing-/Malware-URLs, Navigationsschutz | ⏳ (Listenformat und Lizenz zuerst prüfen) |
 | 9 | Social-Tracking erweitern, Berechtigungen (Kamera/Standort …) | ⏳ |
 | 10 | Neue Oberfläche (Dashboard, Komponenten), Barrierefreiheit | ⏳ |

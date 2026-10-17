@@ -25,9 +25,12 @@ Versionierung nach [SemVer](https://semver.org/lang/de/). Solange die erste Vers
 - Versioniertes **Einstellungsschema** (v2) mit Migration, Validierung, Import/Export und Rollback.
 - Neuer Optionen-Tab **Schutzprofile** (Profile, Module, Regeln, native Einstellungen, Listen, Cookie Vault) und
   Profil-/Website-Steuerung im Popup.
+- **Cookie-Banner-Manager** (Modi Manuell/Ablehnen/Ausblenden, Adapter für OneTrust, Cookiebot, Usercentrics, Klaro, Didomi,
+  Quantcast und ein generischer Erkenner): erteilt nie Zustimmung, verweigert Klicks auf zustimmend beschriftete Elemente,
+  blendet blockierende Dialoge nicht aus; Abschalten pro Website. Geprüft gegen nachgebaute Dialoge.
 - Logo und Erweiterungs-Icons.
 - Tests: Unit-Tests, Firefox-Messsuiten (CSP, `privacy`-API, Navigator, Löschreichweite) und eine
-  **Ende-zu-Ende-Suite mit der gebauten Erweiterung in echtem Firefox** (32 Prüfungen).
+  **Ende-zu-Ende-Suite mit der gebauten Erweiterung in echtem Firefox** (53 Prüfungen).
 - Dokumentation der Fähigkeiten und Messungen unter `docs/architecture/`.
 
 ### Geändert
@@ -58,4 +61,5 @@ Versionierung nach [SemVer](https://semver.org/lang/de/). Solange die erste Vers
   nach Optimierung) können abgeschnitten werden und sind dann als „teilweise“ gekennzeichnet.
 - `webRequest` und `declarativeNetRequestFeedback` sind nur für das optionale Log bereinigter URLs nötig und werden voraussichtlich
   entfernt.
+- Die Consent-Adapter sind nicht gegen die Live-Skripte der Anbieter geprüft.
 - Siehe `README.md` → „Was AnoFox nicht kann“.

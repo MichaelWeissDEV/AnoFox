@@ -37,7 +37,7 @@ Leitlinien:
 ## Was AnoFox kann
 
 Der Status bezieht sich auf **Firefox 158 (Desktop, macOS)**. „E2E“ heißt: von einer Testsuite mit der gebauten Erweiterung in
-echtem Firefox belegt (`npm run test:e2e`, 32 Prüfungen).
+echtem Firefox belegt (`npm run test:e2e`, 53 Prüfungen).
 
 | Bereich | Funktion | Status |
 |---|---|---|
@@ -51,6 +51,7 @@ echtem Firefox belegt (`npm run test:e2e`, 32 Prüfungen).
 | **Cookie Vault** | Richtlinie pro Website: persistent / Session / ephemeral; Bereinigung nach dem Schließen des letzten Tabs (je Container), beim Browserstart und manuell; partitionierte Cookies; Überprüfung des Ergebnisses | ✅ E2E (Tab schließen); Browserstart per Unit-Test |
 | **Website-Speicher** | localStorage, IndexedDB und Service Worker nach Richtlinie löschen | ✅ Reichweite in Firefox gemessen; Grenzen siehe unten |
 | **Native Firefox-Schutzfunktionen** | `resistFingerprinting`, WebRTC-IP-Weitergabe, Referer, Prefetch, Tracking-Schutz – mit Kontrolle von `levelOfControl`, Freigabe per `clear()` | ✅ E2E + Firefox-Messung |
+| **Cookie-Banner** | Lehnt Einwilligungsdialoge ab (OneTrust, Cookiebot, Usercentrics, Klaro, Didomi, Quantcast, generischer Erkenner) oder blendet sie nur aus (Modi Manuell/Ablehnen/Ausblenden). **Erteilt nie Zustimmung**, klickt keine Schaltfläche, die nach Zustimmung klingt, und blendet keine blockierenden Dialoge aus | 🧪 E2E gegen **nachgebaute** Dialoge; nicht gegen die Live-Skripte der Anbieter geprüft |
 | **Einstellungen** | Versioniertes Schema, Migration, validierter Import/Export mit Rollback, Reset | ✅ E2E |
 | **Statistik/Log** | Optional, nur im Arbeitsspeicher, standardmäßig aus | ✅ |
 
@@ -60,12 +61,12 @@ Die genauen Messungen und Entscheidungen stehen in [`docs/architecture/`](docs/a
 
 Noch nicht umgesetzt (geplant, siehe [Roadmap](docs/ROADMAP.md)):
 
-- Cookie-Banner-Automatik (Consent Manager)
 - Malware-/Phishing-Erkennung (Modul ist vorhanden, aber leer und in der Oberfläche gesperrt)
 - Eigene Fingerprinting-Maßnahmen für Audio, Schriften, Hardware (nur native Firefox-Mechanismen sind aktiv)
 - Click-to-Allow für einzelne blockierte Ressourcen, Script Inspector
 - Vertrauenswürdige-Seiten-Verwaltung mit Container-Bindung und Wildcards in der Oberfläche
 - Berechtigungskontrolle (Kamera, Standort …), Referrer-Trimming per Header, statische Regelsätze für sehr große Listen
+- Cookie-Banner in fremden iFrames (z. B. Sourcepoint) und die Prüfung der Adapter gegen Live-Anbieter-Skripte
 - Die komplett neue, professionelle Oberfläche (aktuell: Popup, Optionsseite mit Schutzprofil-Tab)
 - Firefox für Android, Windows und Linux sind **nicht** getestet
 

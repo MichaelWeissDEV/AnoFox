@@ -34,7 +34,7 @@ Scope: **G** = global · **S** = pro Site · **C** = pro Container.
 | Cookie-Verwaltung | `cookies` (inkl. `partitionKey`, Firefox 131+ ⚠), `<all_urls>` | S/C | – (Löschung nachträglich) | M | 128/131 ⚠ | Kein Hook „Cookie wird gesetzt" ohne `webRequest`-Header-Zugriff; `cookies.onChanged` reaktiv | Container | Unit + Browser |
 | Site-Daten löschen | `browsingData.remove({hostnames})` (Firefox ≥ 77) ; `cookieStoreId` Option | S/C | – | M | 77 | `hostnames` löscht auch Subdomains; **Reichweite je Datentyp testen** (Cache/ServiceWorkers/IndexedDB/LocalStorage ⚠) | andere Erweiterungen | Browser-Integrationstest zwingend |
 | Auto-Cleanup beim Schließen | `tabs.onRemoved`, `runtime.onStartup`, `storage.local` Cleanup-Intentionen | S | – | M (best effort) | – | `runtime.onSuspend` unzuverlässig → Intentionen persistieren und beim Start abarbeiten | – | Simulation |
-| Consent-Manager | Content Script, CMP-Adapter | S | nein | M | 128 | Selektoren veralten; nie Opt-in default | uBO Annoyances | Fixtures pro CMP |
+| Consent-Manager | Content Script (Top-Frame), DOM-Klicks / `display:none`; Background nur für Modus und Regeln | S | nein | M | 140 | Nur Hauptdokument; nachgebaute Dialoge statt Live-Skripte geprüft; nie Zustimmung | Seiten-Skripte der CMPs, uBO Annoyances | Firefox 158 E2E (21 Prüfungen) + Unit |
 | Phishing-/Malware-URL-Check | DNR-Rulesets lokal, optional `webNavigation` | G | ja | B/D | 113 | Keine Cloud-Abfrage (Privacy); Listenlizenz prüfen | – | Compiler |
 | Berechtigungen (Kamera/Geo …) | Keine WebExtension-API für Permission-Prompts; Alternativen: `Permissions-Policy` Header per `onHeadersReceived` blocking, MAIN-World-Hooks | S | ja (Header) | M | ⚠ | Kein Eingriff in Firefox-Berechtigungsdialog | – | Browser |
 
