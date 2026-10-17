@@ -1,5 +1,7 @@
 /** Pure domain helpers shared by background and UI. */
 
+import { PSL_NORMAL, PSL_WILDCARD, PSL_EXCEPTION } from './psl-data.ts';
+
 /**
  * Sanitizes domain exceptions into valid domain strings (e.g. removing protocols, paths, wildcards).
  */
@@ -17,52 +19,85 @@ export function sanitizeDomainList(domains: string[]): string[] {
     cleaned = cleaned.replace(/^\*\./, '');
 
     if (cleaned.length > 0 && cleaned.includes('.')) {
-      result.add(cleaned);
+      result.add(normalizeHost(cleaned)); // IDN input becomes punycode, like URL.hostname
     }
   }
   return Array.from(result);
 }
 
 /**
- * Multi-label public suffixes known to this build. This is a deliberately small
- * STOPGAP until the Public Suffix List is bundled (tracked in capabilities.md);
- * unknown multi-label suffixes degrade to "last two labels" which can over-match,
- * so callers that delete data or grant access must treat results as best effort.
+ * Public Suffix List lookup (https://publicsuffix.org/, MPL-2.0; data in psl-data.ts, generated from vendor/psl).
+ * Implements the PSL algorithm: exception rules win, otherwise the longest matching normal/wildcard rule, otherwise the
+ * default rule "*" (the last label). ICANN and PRIVATE sections are both included on purpose: user-content hosts such as
+ * github.io or blogspot.com are site boundaries for cookies, storage and third-party decisions.
  */
-const MULTI_LABEL_SUFFIXES = new Set([
-  'co.uk', 'org.uk', 'ac.uk', 'gov.uk', 'me.uk', 'com.au', 'net.au', 'org.au', 'edu.au',
-  'co.jp', 'ne.jp', 'or.jp', 'co.nz', 'co.za', 'com.br', 'com.cn', 'com.mx', 'co.in', 'co.kr',
-  'github.io', 'gitlab.io', 'netlify.app', 'vercel.app', 'pages.dev', 'herokuapp.com',
-  'blogspot.com', 'appspot.com', 'cloudfront.net', 's3.amazonaws.com'
-]);
+let normalSet: Set<string> | null = null;
+let wildcardSet: Set<string> | null = null;
+let exceptionSet: Set<string> | null = null;
+function sets(): { normal: Set<string>; wildcard: Set<string>; exception: Set<string> } {
+  normalSet ??= new Set(PSL_NORMAL.split(' '));
+  wildcardSet ??= new Set(PSL_WILDCARD.split(' '));
+  exceptionSet ??= new Set(PSL_EXCEPTION.split(' '));
+  return { normal: normalSet, wildcard: wildcardSet, exception: exceptionSet };
+}
 
 const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
 
 export function normalizeHost(host: string): string {
-  return host.trim().toLowerCase().replace(/\.$/, '');
+  let h = host.trim().toLowerCase().replace(/\.$/, '');
+  // Unicode (IDN) input becomes its punycode form, the same form URL.hostname delivers
+  if (/[^\x00-\x7f]/.test(h)) {
+    try { h = new URL(`http://${h}`).hostname; } catch { /* keep as typed */ }
+  }
+  return h;
 }
 
-/** eTLD+1 approximation (see MULTI_LABEL_SUFFIXES). IPs and single labels are returned unchanged. */
+function isIpLike(h: string): boolean {
+  return IPV4.test(h) || h.includes(':') || h.startsWith('[');
+}
+
+/** The public suffix of a host (e.g. "co.uk", "github.io"); for IPs and single labels the host itself. */
+export function publicSuffix(host: string): string {
+  const h = normalizeHost(host);
+  if (!h || isIpLike(h) || !h.includes('.')) return h;
+  const labels = h.split('.');
+  const { normal, wildcard, exception } = sets();
+  for (let i = 0; i < labels.length; i++) {
+    if (exception.has(labels.slice(i).join('.'))) return labels.slice(i + 1).join('.');
+  }
+  let best = 1; // default rule "*"
+  for (let i = 0; i < labels.length; i++) {
+    const len = labels.length - i;
+    if (len <= best) continue;
+    if (normal.has(labels.slice(i).join('.'))) best = len;
+    else if (len >= 2 && wildcard.has(labels.slice(i + 1).join('.'))) best = len;
+  }
+  return labels.slice(labels.length - best).join('.');
+}
+
+export function isPublicSuffix(host: string): boolean {
+  const h = normalizeHost(host);
+  return !!h && !isIpLike(h) && publicSuffix(h) === h;
+}
+
+/** eTLD+1 per the Public Suffix List. IPs, single labels and hosts that ARE a public suffix are returned unchanged. */
 export function registrableDomain(host: string): string {
   const h = normalizeHost(host);
-  if (!h || IPV4.test(h) || h.includes(':') || !h.includes('.')) return h;
+  if (!h || isIpLike(h) || !h.includes('.')) return h;
+  const suffix = publicSuffix(h);
+  if (suffix === h) return h;
   const labels = h.split('.');
-  for (const take of [3, 2]) {
-    if (labels.length > take && MULTI_LABEL_SUFFIXES.has(labels.slice(-take).join('.'))) {
-      return labels.slice(-(take + 1)).join('.');
-    }
-  }
-  return labels.slice(-2).join('.');
+  return labels.slice(labels.length - suffix.split('.').length - 1).join('.');
 }
 
 export function isThirdParty(topHost: string, targetHost: string): boolean {
   return registrableDomain(topHost) !== registrableDomain(targetHost);
 }
 
-/** True if host equals `pattern` or is a subdomain of it. Patterns that are bare public suffixes never match. */
+/** True if host equals `pattern` or is a subdomain of it. Patterns that are public suffixes or single labels never match. */
 export function hostMatches(host: string, pattern: string): boolean {
   const h = normalizeHost(host);
   const p = normalizeHost(pattern).replace(/^\*\./, '');
-  if (!p || MULTI_LABEL_SUFFIXES.has(p) || !p.includes('.')) return false;
+  if (!p || !p.includes('.') || isPublicSuffix(p)) return false;
   return h === p || h.endsWith('.' + p);
 }
