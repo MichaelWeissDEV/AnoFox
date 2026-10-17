@@ -119,18 +119,28 @@ function fail(state: ListState, now: number, status: UpdateStatus, reason: strin
   return { status, reason, state: next };
 }
 
-export async function updateList(
+/** Result of the shared download step: either a finished outcome (error, 304, not due ...) or the validated text. */
+export type FetchedList =
+  | { status: 'done'; outcome: UpdateOutcome }
+  | { status: 'fetched'; text: string; bytes: number; sha256: string; etag?: string; lastModified?: string; now: number };
+
+/**
+ * Download step shared by all list kinds: gating (enabled, cooldown, schedule), allowlisted HTTPS URL, no cookies/referrer,
+ * timeout, streaming size cap, content-type, UTF-8, HTML detection, SHA-256. Parsing and plausibility are the caller's job.
+ */
+export async function fetchListText(
   source: ListSource, state: ListState, deps: UpdaterDeps, opts: { manual?: boolean } = {}
-): Promise<UpdateOutcome> {
+): Promise<FetchedList> {
   const now = deps.now();
-  if (!state.enabled) return { status: 'disabled', state };
+  const done = (outcome: UpdateOutcome): FetchedList => ({ status: 'done', outcome });
+  if (!state.enabled) return done({ status: 'disabled', state });
   if (opts.manual && state.lastCheckAt !== undefined && now - state.lastCheckAt < MANUAL_COOLDOWN_MS) {
-    return { status: 'cooldown', reason: 'manual-cooldown', state };
+    return done({ status: 'cooldown', reason: 'manual-cooldown', state });
   }
   if (!opts.manual && state.nextCheckAt !== undefined && now < state.nextCheckAt) {
-    return { status: 'not-modified', reason: 'not-due', state };
+    return done({ status: 'not-modified', reason: 'not-due', state });
   }
-  if (!isUrlAllowedForSource(source.url, source)) return fail(state, now, 'rejected', 'source-url-not-allowed');
+  if (!isUrlAllowedForSource(source.url, source)) return done(fail(state, now, 'rejected', 'source-url-not-allowed'));
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), deps.timeoutMs ?? DEFAULT_TIMEOUT_MS);
@@ -145,57 +155,70 @@ export async function updateList(
         method: 'GET', headers, credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store',
         redirect: 'follow', signal: controller.signal
       });
-    } catch (e) {
-      return fail(state, now, 'error', controller.signal.aborted ? 'timeout' : 'network');
+    } catch {
+      return done(fail(state, now, 'error', controller.signal.aborted ? 'timeout' : 'network'));
     }
 
-    if (res.url && !isUrlAllowedForSource(res.url, source)) return fail(state, now, 'rejected', 'redirect-target-not-allowed');
+    if (res.url && !isUrlAllowedForSource(res.url, source)) return done(fail(state, now, 'rejected', 'redirect-target-not-allowed'));
 
     if (res.status === 304) {
       const next: ListState = { ...state, lastCheckAt: now, lastStatus: 'not-modified', lastError: undefined, nextCheckAt: now + state.intervalMs };
-      return { status: 'not-modified', state: next };
+      return done({ status: 'not-modified', state: next });
     }
-    if (!res.ok) return fail(state, now, 'error', `http-${res.status}`);
+    if (!res.ok) return done(fail(state, now, 'error', `http-${res.status}`));
 
     const ct = (res.headers.get('content-type') ?? '').toLowerCase();
     if (ct && !ct.startsWith('text/plain') && !ct.startsWith('application/octet-stream')) {
-      return fail(state, now, 'rejected', 'unexpected-content-type');
+      return done(fail(state, now, 'rejected', 'unexpected-content-type'));
     }
 
     const body = await readCapped(res, source.maxBytes, controller.signal);
-    if (!(body instanceof Uint8Array)) return fail(state, now, body.error === 'timeout' ? 'error' : 'rejected', body.error);
+    if (!(body instanceof Uint8Array)) return done(fail(state, now, body.error === 'timeout' ? 'error' : 'rejected', body.error));
 
     let text: string;
-    try { text = new TextDecoder('utf-8', { fatal: true }).decode(body); } catch { return fail(state, now, 'rejected', 'invalid-utf8'); }
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(body); } catch { return done(fail(state, now, 'rejected', 'invalid-utf8')); }
     const head = text.slice(0, 512).trimStart().toLowerCase();
-    if (head.startsWith('<') || head.startsWith('{')) return fail(state, now, 'rejected', 'not-a-filter-list');
+    if (head.startsWith('<') || head.startsWith('{')) return done(fail(state, now, 'rejected', 'not-a-filter-list'));
 
-    const parsed = parseList(text, source.format);
-    const total = parsed.filters.length + parsed.cosmetic.length + parsed.unsupported.length;
-    if (parsed.filters.length === 0 || total < 10) return fail(state, now, 'rejected', 'no-plausible-filters');
-    const prevCount = state.current?.filterCount ?? 0;
-    if (prevCount > 0 && parsed.filters.length < prevCount * MIN_SHRINK_RATIO) {
-      return fail(state, now, 'rejected', 'suspicious-shrink');
-    }
-
-    const sha256 = await deps.sha256(body);
-    // the user's interval is authoritative; `Expires` metadata is only informational (see parseExpires)
-    const interval = state.intervalMs;
-    const meta: ListMeta = {
-      etag: res.headers.get('etag') ?? undefined,
-      lastModified: res.headers.get('last-modified') ?? undefined,
-      sha256, version: parsed.metadata.version, title: parsed.metadata.title, fetchedAt: now, bytes: body.byteLength,
-      filterCount: parsed.filters.length, unsupportedCount: parsed.unsupported.length, cosmeticCount: parsed.cosmetic.length
+    return {
+      status: 'fetched', text, bytes: body.byteLength, sha256: await deps.sha256(body), now,
+      etag: res.headers.get('etag') ?? undefined, lastModified: res.headers.get('last-modified') ?? undefined
     };
-    // Unchanged content despite a 200 (servers without conditional support): keep, no recompile needed.
-    if (state.current && state.current.sha256 === sha256) {
-      const next: ListState = { ...state, current: { ...state.current, fetchedAt: now, etag: meta.etag, lastModified: meta.lastModified },
-        lastCheckAt: now, lastStatus: 'not-modified', lastError: undefined, nextCheckAt: now + interval };
-      return { status: 'not-modified', reason: 'same-hash', state: next };
-    }
-    const next: ListState = { ...state, current: meta, lastCheckAt: now, lastStatus: 'updated', lastError: undefined, nextCheckAt: now + interval };
-    return { status: 'updated', meta, parsed, state: next };
   } finally {
     clearTimeout(timer);
   }
+}
+
+export { fail as failOutcome };
+
+export async function updateList(
+  source: ListSource, state: ListState, deps: UpdaterDeps, opts: { manual?: boolean } = {}
+): Promise<UpdateOutcome> {
+  const f = await fetchListText(source, state, deps, opts);
+  if (f.status === 'done') return f.outcome;
+  const { now } = f;
+
+  const parsed = parseList(f.text, source.format);
+  const total = parsed.filters.length + parsed.cosmetic.length + parsed.unsupported.length;
+  if (parsed.filters.length === 0 || total < 10) return fail(state, now, 'rejected', 'no-plausible-filters');
+  const prevCount = state.current?.filterCount ?? 0;
+  if (prevCount > 0 && parsed.filters.length < prevCount * MIN_SHRINK_RATIO) {
+    return fail(state, now, 'rejected', 'suspicious-shrink');
+  }
+
+  // the user's interval is authoritative; `Expires` metadata is only informational (see parseExpires)
+  const interval = state.intervalMs;
+  const meta: ListMeta = {
+    etag: f.etag, lastModified: f.lastModified,
+    sha256: f.sha256, version: parsed.metadata.version, title: parsed.metadata.title, fetchedAt: now, bytes: f.bytes,
+    filterCount: parsed.filters.length, unsupportedCount: parsed.unsupported.length, cosmeticCount: parsed.cosmetic.length
+  };
+  // Unchanged content despite a 200 (servers without conditional support): keep, no recompile needed.
+  if (state.current && state.current.sha256 === f.sha256) {
+    const next: ListState = { ...state, current: { ...state.current, fetchedAt: now, etag: meta.etag, lastModified: meta.lastModified },
+      lastCheckAt: now, lastStatus: 'not-modified', lastError: undefined, nextCheckAt: now + interval };
+    return { status: 'not-modified', reason: 'same-hash', state: next };
+  }
+  const next: ListState = { ...state, current: meta, lastCheckAt: now, lastStatus: 'updated', lastError: undefined, nextCheckAt: now + interval };
+  return { status: 'updated', meta, parsed, state: next };
 }
