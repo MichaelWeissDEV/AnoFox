@@ -1,0 +1,7 @@
+{
+  "manifest_version": 3, "name": "anofox-csp-probe", "version": "1.0",
+  "permissions": ["declarativeNetRequest", "scripting", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "scripts": ["bg.js"] },
+  "browser_specific_settings": { "gecko": { "id": "csp-probe@example.org", "strict_min_version": "128.0" } }
+}

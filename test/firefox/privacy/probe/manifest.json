@@ -1,0 +1,7 @@
+{
+  "manifest_version": 3, "name": "anofox-privacy-probe", "version": "1.0",
+  "permissions": ["privacy", "scripting", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "scripts": ["bg.js"] },
+  "browser_specific_settings": { "gecko": { "id": "privacy-probe@example.org", "strict_min_version": "128.0" } }
+}

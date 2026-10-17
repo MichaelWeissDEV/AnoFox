@@ -1,0 +1,7 @@
+{
+  "manifest_version": 3, "name": "anofox-storage-probe", "version": "1.0",
+  "permissions": ["cookies", "browsingData", "scripting", "tabs", "contextualIdentities", "cookies"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "scripts": ["bg.js"] },
+  "browser_specific_settings": { "gecko": { "id": "storage-probe@example.org", "strict_min_version": "128.0" } }
+}

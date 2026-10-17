@@ -1,0 +1,8 @@
+{
+  "manifest_version": 3, "name": "anofox-navigator-probe", "version": "1.0",
+  "permissions": ["scripting", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "scripts": ["bg.js"] },
+  "web_accessible_resources": [],
+  "browser_specific_settings": { "gecko": { "id": "navigator-probe@example.org", "strict_min_version": "128.0" } }
+}
