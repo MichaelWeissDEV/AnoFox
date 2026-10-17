@@ -34,12 +34,16 @@ Versionierung nach [SemVer](https://semver.org/lang/de/). Solange die erste Vers
   Compiler (bis 400 000 Domains in Firefox gemessen), Warnseite mit Freigabe nur über die eigene Seite, Warnung vor Adressen
   mit Zugangsdaten vor dem Server, Schutz gegen vergiftete Listen, Listen-Manager mit Rollback. Quellen: URLhaus (via
   malware-filter), Phishing-Filter, Phishing.Database, alle standardmäßig aus.
+- **Public Suffix List** (MPL-2.0, vendored, Generator `scripts/build-psl.mjs`) statt Übergangsliste; Punycode für IDN.
+- Echter Listen-Download in Firefox geprüft (`npm run test:e2e:download`), `docs/architecture/permissions.md`, Manifest-Test.
 - Logo und Erweiterungs-Icons.
 - Tests: Unit-Tests, Firefox-Messsuiten (CSP, `privacy`-API, Navigator, Löschreichweite) und eine
   **Ende-zu-Ende-Suite mit der gebauten Erweiterung in echtem Firefox** (76 Prüfungen).
 - Dokumentation der Fähigkeiten und Messungen unter `docs/architecture/`.
 
 ### Geändert
+- **Berechtigungen reduziert**: `declarativeNetRequestFeedback` entfernt, `webRequest` nur noch optional (zum Zählen bereinigter URLs,
+  per Klick angefragt), Content-Skripte nur noch auf http(s).
 - `dnr-manager` neu strukturiert: stabile Regel-IDs je Modul, atomarer Austausch, Prioritätsbänder, Sitzungsregeln.
 - Einstellungen werden beim Start vor jeder Nachricht geladen (kein Race mehr); Regelanwendung ist serialisiert.
 - Mindestversion **Firefox 140** (wegen `data_collection_permissions`).
@@ -63,8 +67,8 @@ Versionierung nach [SemVer](https://semver.org/lang/de/). Solange die erste Vers
 
 ### Bekannte Einschränkungen
 - Nur Firefox 158 (Desktop, macOS) wurde getestet.
-- Das Regelkontingent für dynamische Regeln ist in Firefox nicht eindeutig dokumentiert; große Listen (EasyPrivacy ≈ 9 000 Regeln
-  nach Optimierung) können abgeschnitten werden und sind dann als „teilweise“ gekennzeichnet.
+- Das Regelkontingent für dynamische Regeln ist in Firefox nicht eindeutig dokumentiert; große Listen (EasyList + EasyPrivacy: gemessen 3 643 von
+  13 025 Regeln, 9 382 Filter abgeschnitten) werden als „teilweise“ gekennzeichnet.
 - `webRequest` und `declarativeNetRequestFeedback` sind nur für das optionale Log bereinigter URLs nötig und werden voraussichtlich
   entfernt.
 - Die Consent-Adapter sind nicht gegen die Live-Skripte der Anbieter geprüft.

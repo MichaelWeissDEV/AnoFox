@@ -66,6 +66,9 @@ Folge: Bei einem Kontingent von 5 000 dynamischen Regeln passt EasyList knapp, E
 - Listenregeln: IDs 100 000–199 999, vom Policy-Sync nie angefasst. Zurücksetzen der Einstellungen schaltet Listen vorher ab.
 - Prioritätsband 1–3, unter allen Policy-Bändern.
 
+## Echter Download und Quota (Firefox 158, 2026-10-17)
+Geprüft mit `npm run test:e2e:download` (siehe `permissions.md`): Download, Validierung und Installation gegen die echten Anbieter funktionieren; EasyList + EasyPrivacy ergeben zusammen 111 624 Filter, von denen 3 643 Regeln ins Kontingent passen (9 382 Filter abgeschnitten, als „partial“ gemeldet).
+
 ## Noch offen in Phase 3
 1. Echte Firefox-Prüfung (Regex-Support, Kontingente, Prioritäten, Verhalten von `allowAllRequests`) – Harness T-1. Bis dahin ist das Modul „experimentell“.
 2. Statische Rulesets für große Listen; Firefox-Bug 1921353 (dynamische Regeln nach Neustart).

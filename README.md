@@ -37,7 +37,7 @@ Leitlinien:
 ## Was AnoFox kann
 
 Der Status bezieht sich auf **Firefox 158 (Desktop, macOS)**. „E2E“ heißt: von einer Testsuite mit der gebauten Erweiterung in
-echtem Firefox belegt (`npm run test:e2e`, 76 Prüfungen).
+echtem Firefox belegt (`npm run test:e2e`, 77 Prüfungen).
 
 | Bereich | Funktion | Status |
 |---|---|---|
@@ -111,7 +111,8 @@ npm test               # 100+ Unit-Tests (Node-Testrunner, ohne Browser)
 npm run typecheck      # TypeScript
 npm run lint           # Typecheck + Build + web-ext lint
 npm run test:e2e       # Ende-zu-Ende: gebaute Erweiterung in headless Firefox (ca. 3–4 Minuten)
-npm run test:firefox   # Messungen/Regressionstests der Firefox-Fakten (CSP, privacy-API, Navigator, Löschreichweite)
+npm run test:firefox   # Messungen/Regressionstests der Firefox-Fakten (CSP, privacy-API, Navigator, Löschreichweite, Threat-Kapazität)
+npm run test:e2e:download   # echter Listen-Download im Browser (braucht Internet, 4 Prüfungen)
 ```
 
 Die Firefox-Suiten starten ein lokales Testsystem (virtuelle Hosts über einen lokalen PAC-Proxy, lokaler Server) und brauchen
@@ -145,12 +146,14 @@ selbst aktivierst; der Listenanbieter sieht dabei deine IP-Adresse, aber keine b
 
 | Berechtigung | Wofür |
 |---|---|
-| `declarativeNetRequest`, Host `<all_urls>` | Anfragen vor dem Netzwerk blockieren, Parameter entfernen, CSP-Header anhängen |
+| `declarativeNetRequest`, Host `<all_urls>` | Anfragen vor dem Netzwerk blockieren, Parameter entfernen, CSP-Header anhängen, Warnseite |
 | `storage`, `alarms` | Einstellungen, Bereinigungswarteschlange, Listenprüfung |
 | `tabs`, `scripting` | Websites/Container erkennen, Ausnahmen, Kosmetik-Filter per `insertCSS` |
 | `cookies`, `browsingData` | Cookie Vault (Bereinigung nach Richtlinie) |
 | `privacy` | Native Firefox-Datenschutzeinstellungen (browserweit) |
-| `webRequest`, `declarativeNetRequestFeedback` | Nur für das optionale Log bereinigter URLs; **Kandidaten zum Entfernen** (siehe Roadmap) |
+| `webRequest` (**optional**) | Nur zum Zählen bereinigter URLs; wird beim Einschalten der Statistik angefragt, ohne sie läuft alles unverändert |
+
+Begründung, Messungen und Mindestversion: [`docs/architecture/permissions.md`](docs/architecture/permissions.md). Content-Skripte laufen nur auf `http(s)`-Seiten.
 
 ## Mitwirken und Sicherheit
 

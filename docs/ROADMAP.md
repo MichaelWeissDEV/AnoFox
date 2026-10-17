@@ -15,7 +15,7 @@ Legende: ✅ umgesetzt und getestet · 🧪 umgesetzt, experimentell/teilweise g
 | 8 | Phishing-/Malware-URLs, Navigationsschutz | 🧪 lokale Listen, Warnseite, Userinfo-Warnung, E2E; ⏳ IDN/Homographen, echter Download im Browser, Lizenz vor Release erneut prüfen |
 | 9 | Social-Tracking erweitern, Berechtigungen (Kamera/Standort …) | ⏳ |
 | 10 | Neue Oberfläche (Dashboard, Komponenten), Barrierefreiheit | ✅ Dashboard, Popup, Warnseite, Tokens, Struktur-/Kontrast-/Responsiv-Tests; ⏳ alte Bereiche auf Komponenten umstellen, Screenreader-Test, Zoom/Kontrastmodus |
-| 11 | Härtung: Berechtigungen reduzieren (`webRequest`, `declarativeNetRequestFeedback`), PSL, Mindestversionen, Windows/Linux/Android prüfen | ⏳ |
+| 11 | Härtung: Berechtigungen reduzieren, PSL, Mindestversionen, Windows/Linux/Android prüfen | ✅ Berechtigungen, PSL, echter Download; ⏳ Firefox 140 ESR/Windows/Linux testen, statische Rulesets gegen die 5 000-Regel-Grenze |
 
 ## Prinzipien für neue Funktionen
 

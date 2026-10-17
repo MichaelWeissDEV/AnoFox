@@ -26,8 +26,9 @@ Weitere Listen (uBlock filters, Peter Lowe’s u. a.) sind **nicht** eingebunden
 
 ## Public Suffix List
 
-Die Domänenlogik enthält eine **kleine Übergangsliste** mehrteiliger Suffixe (`src/core/domain-utils/domains.ts`), nicht die
-Public Suffix List. Die Einbindung der PSL (MPL-2.0) steht auf der Roadmap.
+`vendor/psl/public_suffix_list.dat` ist die unveränderte Public Suffix List (https://publicsuffix.org/), lizenziert unter der
+**Mozilla Public License 2.0**; `src/core/domain-utils/psl-data.ts` wird daraus generiert. MPL-2.0 ist mit der GPL-3.0-or-later
+des Projekts kompatibel (Abschnitt 3.3 der MPL). Quelltext der Liste: siehe `vendor/psl/`.
 
 ## Logo und Icons
 
