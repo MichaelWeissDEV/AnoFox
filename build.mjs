@@ -1,5 +1,6 @@
 import { build } from 'esbuild';
 import { cp, mkdir, rm, readFile, writeFile } from 'node:fs/promises';
+import { tokensCss } from './src/ui/tokens.mjs';
 
 // `node build.mjs`          -> dist/       (the extension)
 // `node build.mjs --e2e`    -> dist-e2e/   (same extension + test driver page, used only by test/firefox/e2e)
@@ -27,6 +28,9 @@ await build({
 });
 
 await cp('public', outdir, { recursive: true });
+// inject the contrast-tested design tokens into the shared stylesheet
+const ui = await readFile('public/ui.css', 'utf8');
+await writeFile(`${outdir}/ui.css`, ui.replace('/* @tokens */', tokensCss()));
 
 if (e2e) {
   await build({ entryPoints: ['test/firefox/e2e/driver.ts'], outfile: `${outdir}/e2e-driver.js`, bundle: true, format: 'iife', target: 'es2022', define: { __E2E__: 'true' } });
