@@ -1,0 +1,1055 @@
+<!doctype html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AnoFox - Privacy Dashboard</title>
+<style>
+  :root[data-theme="dark"], :root:not([data-theme="light"]) {
+    --bg-primary: #0e171d;
+    --bg-secondary: #142229;
+    --bg-card: #1a2c35;
+    --bg-card-hover: #1f3540;
+    --bg-input: #101c22;
+    --accent: #6ad7b0;
+    --accent-hover: #83e3c0;
+    --accent-text: #0b1a20;
+    --text-primary: #edf6f5;
+    --text-muted: #95b3b1;
+    --danger: #f87171;
+    --danger-hover: #ef4444;
+    --border: #284452;
+    --border-subtle: #1c303a;
+    --shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  }
+
+  :root[data-theme="light"] {
+    --bg-primary: #f5f8fa;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f8fafc;
+    --bg-input: #f1f5f9;
+    --accent: #0d9488;
+    --accent-hover: #0f766e;
+    --accent-text: #ffffff;
+    --text-primary: #0f172a;
+    --text-muted: #64748b;
+    --danger: #ef4444;
+    --danger-hover: #dc2626;
+    --border: #e2e8f0;
+    --border-subtle: #cbd5e1;
+    --shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font: 14px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-title {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+  }
+
+  .logo-badge {
+    background: var(--accent);
+    color: var(--accent-text);
+    font-size: 11px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* Theme Switcher Pills */
+  .theme-selector {
+    display: flex;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2px;
+  }
+
+  .theme-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all .15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .theme-btn:hover {
+    color: var(--text-primary);
+  }
+
+  .theme-btn.active {
+    background: var(--bg-card);
+    color: var(--accent);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  /* Layout */
+  .container {
+    max-width: 1080px;
+    margin: 32px auto;
+    padding: 0 24px;
+  }
+
+  /* Tab Navigation */
+  .nav-tabs {
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+
+  .tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 18px;
+    cursor: pointer;
+    transition: all .15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: -1px;
+  }
+
+  .tab-btn:hover {
+    color: var(--text-primary);
+  }
+
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab-pane {
+    display: none;
+  }
+
+  .tab-pane.active {
+    display: block;
+  }
+
+  /* Cards & Sections */
+
+  .policy-profiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+  .policy-profile { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left; padding: 12px 14px; white-space: normal; }
+  .policy-profile span { font-weight: 400; font-size: 12px; color: var(--text-muted); }
+  .policy-profile.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .policy-note { color: var(--text-muted); font-size: 12px; margin: 12px 0; }
+  .policy-modules { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .policy-module { display: grid; grid-template-columns: 1fr 140px; gap: 16px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--border-subtle); }
+  .policy-module:last-child { border-bottom: none; }
+  .policy-module.inactive { opacity: 0.65; }
+  .policy-desc { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+  .policy-h { margin: 24px 0 10px; font-size: 15px; }
+  .policy-form { display: flex; flex-wrap: wrap; gap: 8px; }
+  .policy-form select, .policy-form input[type="text"] { flex: 1 1 150px; min-width: 0; }
+  .policy-rules { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .policy-rule { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 7px; font-size: 12px; }
+  .policy-rule-text { flex: 1 1 260px; font-family: monospace; }
+  .policy-rule button.tag-del { background: none; border: none; color: var(--text-muted); padding: 2px 6px; cursor: pointer; }
+  .policy-rule button.tag-del:hover { color: var(--danger); }
+  .chip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border); }
+  .chip.ok { color: var(--accent); border-color: var(--accent); }
+  .chip.todo { color: var(--text-muted); }
+  @media (max-width: 640px) { .policy-module { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .card-desc {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin-top: 4px;
+  }
+
+  /* Switch */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: var(--border);
+    transition: .2s;
+    border-radius: 24px;
+  }
+
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .2s;
+    border-radius: 50%;
+  }
+
+  input:checked + .slider {
+    background-color: var(--accent);
+  }
+
+  input:checked + .slider:before {
+    transform: translateX(20px);
+    background-color: var(--accent-text);
+  }
+
+  /* Provider Grid */
+  .provider-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .provider-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    transition: border-color .15s, background .15s;
+  }
+
+  .provider-card:hover {
+    border-color: var(--accent);
+    background: var(--bg-card-hover);
+  }
+
+  .provider-meta {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .provider-icon {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .provider-icon svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .provider-name {
+    font-weight: 700;
+    font-size: 14px;
+    margin: 0 0 4px;
+  }
+
+  .provider-desc {
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.35;
+    margin: 0;
+  }
+
+  /* Forms & Buttons */
+  .form-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  input[type="text"], select {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 8px 14px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-family: inherit;
+    flex: 1;
+  }
+
+  input[type="text"]:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  button {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 8px 16px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  button:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--accent);
+  }
+
+  button.btn-accent {
+    background: var(--accent);
+    color: var(--accent-text);
+    border-color: var(--accent);
+  }
+
+  button.btn-accent:hover {
+    background: var(--accent-hover);
+  }
+
+  button.btn-danger {
+    background: transparent;
+    color: var(--danger);
+    border-color: var(--border);
+  }
+
+  button.btn-danger:hover {
+    background: var(--danger);
+    color: #ffffff;
+    border-color: var(--danger);
+  }
+
+  /* Tag & List Tables */
+  .domain-list {
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 8px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .domain-tag {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: monospace;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .domain-tag button.tag-del {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    padding: 0;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .domain-tag button.tag-del:hover {
+    color: var(--danger);
+  }
+
+  .empty-state {
+    color: var(--text-muted);
+    font-size: 13px;
+    padding: 16px;
+    text-align: center;
+    width: 100%;
+  }
+
+  /* Parameter Badges */
+  .param-badge-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+    max-height: 160px;
+    overflow-y: auto;
+    background: var(--bg-input);
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .param-badge {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    padding: 3px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: monospace;
+  }
+
+  /* Privacy Notice Box */
+  .privacy-notice-box {
+    background: rgba(106, 215, 176, 0.08);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .privacy-notice-icon {
+    font-size: 24px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .privacy-notice-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 0 0 4px;
+  }
+
+  .privacy-notice-text {
+    font-size: 12.5px;
+    color: var(--text-primary);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* Stats Grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .stat-card-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    margin: 0 0 8px;
+  }
+
+  .stat-card-number {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--accent);
+    line-height: 1.1;
+    margin: 0 0 6px;
+  }
+
+  .stat-card-desc {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+
+  /* Breakdowns */
+  .breakdown-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .breakdown-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .breakdown-card h4 {
+    margin: 0 0 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .breakdown-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+
+  .breakdown-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .breakdown-count {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    padding: 2px 7px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 11px;
+  }
+
+  /* Insights Activity Table */
+  .insights-table-wrapper {
+    margin-top: 14px;
+    max-height: 280px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-input);
+  }
+
+  .insights-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    text-align: left;
+  }
+
+  .insights-table th {
+    background: var(--bg-card);
+    padding: 9px 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+
+  .insights-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .insights-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .badge-type {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .badge-type.tracker {
+    background: rgba(106, 215, 176, 0.15);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+
+  .badge-type.embed {
+    background: rgba(248, 113, 113, 0.15);
+    color: var(--danger);
+    border: 1px solid var(--danger);
+  }
+
+  /* Internal Log Console */
+  .log-console {
+    background: #080e12;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11.5px;
+    max-height: 280px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .log-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    line-height: 1.4;
+    word-break: break-all;
+  }
+
+  .log-time {
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .log-level {
+    font-weight: 700;
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .log-level.DEBUG { color: #94a3b8; background: #1e293b; }
+  .log-level.INFO { color: #6ad7b0; background: #064e3b; }
+  .log-level.WARN { color: #fbbf24; background: #78350f; }
+  .log-level.ERROR { color: #f87171; background: #7f1d1d; }
+
+  .log-cat {
+    color: var(--text-muted);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .log-msg {
+    color: var(--text-primary);
+    flex: 1;
+  }
+
+  .log-details {
+    color: #94a3b8;
+    font-size: 10.5px;
+    margin-top: 2px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1 class="logo-title">AnoFox <span class="logo-badge">Dashboard</span></h1>
+  </div>
+  <div class="header-right">
+    <div class="theme-selector" role="radiogroup" aria-label="Erscheinungsbild">
+      <button type="button" class="theme-btn" data-theme="dark" title="Dunkles Design">🌙 Dunkel</button>
+      <button type="button" class="theme-btn" data-theme="light" title="Helles Design">☀️ Hell</button>
+      <button type="button" class="theme-btn" data-theme="system" title="Systemstandard">💻 System</button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <!-- Nav Tabs -->
+  <div class="nav-tabs" role="tablist">
+    <button type="button" class="tab-btn active" data-tab="tab-policy">🎛️ Schutzprofile</button>
+    <button type="button" class="tab-btn" data-tab="tab-embeds">🛡️ Social Embed Guard</button>
+    <button type="button" class="tab-btn" data-tab="tab-cleaner">🧹 URL-Tracking Cleaner</button>
+    <button type="button" class="tab-btn" data-tab="tab-stats">📊 Statistik & Einblicke</button>
+    <button type="button" class="tab-btn" data-tab="tab-terminal">⚙️ [AnoFox] Konsole & Log-Level</button>
+    <button type="button" class="tab-btn" data-tab="tab-backup">💾 Allgemein & Backup</button>
+  </div>
+
+  <!-- TAB 1: SOCIAL EMBED GUARD -->
+  <!-- TAB 0: PROFILES, MODULES, RULES -->
+  <div class="tab-pane active" id="tab-policy">
+    <div class="card">
+      <div class="card-header"><div>
+        <h2 class="card-title">🎛️ Schutzprofile & Module</h2>
+        <p class="card-desc">Nur Module mit Kennzeichnung „aktiv erzwungen“ haben in dieser Version eine Wirkung.</p>
+      </div></div>
+      <div id="policy-root"></div>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-embeds">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Social Embed Guard Hauptschalter</h2>
+          <div class="card-desc">Blockiert 3rd-Party Social Media Embeds und Widgets vor dem Aufbau von Netzwerkverbindungen.</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="embeds-master-toggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Supported Providers Grid -->
+    <div class="card">
+      <h2 class="card-title">Drittanbieter-Plattformen verwalten</h2>
+      <div class="card-desc">Aktivieren oder deaktivieren Sie die Blockierung für spezifische Netzwerke.</div>
+      <div class="provider-grid" id="providers-container">
+        <!-- Dynamically rendered by options.ts -->
+      </div>
+    </div>
+
+    <!-- Website Allowlist for Embeds -->
+    <div class="card">
+      <h2 class="card-title">Website-Ausnahmen (Embed Allowlist)</h2>
+      <div class="card-desc">Websites, auf denen Social Embeds ohne Platzhalter sofort geladen werden dürfen.</div>
+
+      <div class="form-row">
+        <input type="text" id="embed-domain-input" placeholder="z. B. blog.company.org oder news-site.de">
+        <button type="button" id="embed-domain-add-btn" class="btn-accent">+ Hinzufügen</button>
+      </div>
+
+      <div class="form-row" style="margin-top: 10px;">
+        <input type="text" id="embed-domain-search" placeholder="🔍 Ausnahmen durchsuchen...">
+        <button type="button" id="embed-clear-all-btn" class="btn-danger">Alle entfernen</button>
+      </div>
+
+      <div class="domain-list" id="embed-domain-list">
+        <!-- Rendered by options.ts -->
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: URL TRACKING CLEANER -->
+  <div class="tab-pane" id="tab-cleaner">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">URL-Tracking-Bereinigung Hauptschalter</h2>
+          <div class="card-desc">Entfernt Tracking-Parameter per DeclarativeNetRequest vor der Netzwerkübertragung.</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="cleaner-master-toggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Website Allowlist for Cleaner -->
+    <div class="card">
+      <h2 class="card-title">Website-Ausnahmen (Tracking Cleaner)</h2>
+      <div class="card-desc">Websites, auf denen URLs niemals bereinigt oder modifiziert werden.</div>
+
+      <div class="form-row">
+        <input type="text" id="cleaner-domain-input" placeholder="z. B. shop.example.com">
+        <button type="button" id="cleaner-domain-add-btn" class="btn-accent">+ Hinzufügen</button>
+      </div>
+
+      <div class="form-row" style="margin-top: 10px;">
+        <input type="text" id="cleaner-domain-search" placeholder="🔍 Ausnahmen durchsuchen...">
+        <button type="button" id="cleaner-clear-all-btn" class="btn-danger">Alle entfernen</button>
+      </div>
+
+      <div class="domain-list" id="cleaner-domain-list">
+        <!-- Rendered by options.ts -->
+      </div>
+    </div>
+
+    <!-- Tracked Parameters Reference -->
+    <div class="card">
+      <h2 class="card-title">Überwachte Tracking-Parameter</h2>
+      <div class="card-desc">AnoFox filtert automatisch über 60 bekannte Tracking- und Werbeparameter:</div>
+      <div class="param-badge-list" id="param-list">
+        <!-- Rendered by options.ts -->
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: STATISTIK & EINBLICKE -->
+  <div class="tab-pane" id="tab-stats">
+    <!-- Privacy & Ephemerality Notice -->
+    <div class="privacy-notice-box">
+      <div class="privacy-notice-icon">🔒</div>
+      <div>
+        <div class="privacy-notice-title">100% Lokale & Temporäre Erfassung (Standard: AUS)</div>
+        <p class="privacy-notice-text">
+          Statistiken und das interne AnoFox-Protokoll sind <strong>standardmäßig deaktiviert</strong>.
+          Wenn Sie diesen Schalter aktivieren, werden blockierte Tracker und Logs <strong>ausschließlich temporär im lokalen Arbeitsspeicher (RAM)</strong> gehalten.
+          Wir speichern diese Daten <strong>niemals über Browser-Sitzungen hinweg</strong> und übertragen nichts an Server oder Dritte.
+          Sobald der Schalter deaktiviert oder der Browser beendet wird, werden alle Zähler und Einträge sofort und restlos verworfen.
+          <strong>Wenn der Schalter aus ist, wird rein gar nichts erhoben oder gespeichert.</strong>
+        </p>
+      </div>
+    </div>
+
+    <!-- Master Switch Card for Stats & Internal Log -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Temporäre Statistik & Internes Log</h2>
+          <div class="card-desc">Erhebt während dieser Sitzung Zähler über geblockte Tracking-Inhalte und führt ein internes Protokoll.</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="stats-master-toggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Container shown when stats are disabled (default) -->
+    <div id="stats-disabled-container" class="card">
+      <div class="empty-state" style="padding: 32px 16px;">
+        <div style="font-size: 32px; margin-bottom: 10px;">🛡️</div>
+        <div style="font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">Statistikerfassung ist derzeit AUS</div>
+        <p style="margin: 0 auto; max-width: 480px; font-size: 13px; color: var(--text-muted);">
+          Gemäß den Datenschutz-Richtlinien von AnoFox ist die Statistik standardmäßig deaktiviert. Es werden weder geblockte Anfragen gezählt noch Logs im Speicher abgelegt.
+        </p>
+      </div>
+    </div>
+
+    <!-- Container shown when stats are enabled -->
+    <div id="stats-enabled-container" style="display: none;">
+      <!-- Quick Action Buttons -->
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 16px;">
+        <button type="button" id="btn-refresh-stats" class="btn-sm">🔄 Aktualisieren</button>
+        <button type="button" id="btn-clear-stats" class="btn-sm btn-danger">🗑️ Statistik & Log jetzt leeren</button>
+      </div>
+
+      <!-- 3 Metrics Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-card-title">Blockierte Elemente gesamt</span>
+          <span class="stat-card-number" id="stat-total-blocked">0</span>
+          <span class="stat-card-desc">Tracker-Parameter + Embeds</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card-title">Bereinigte URLs</span>
+          <span class="stat-card-number" id="stat-cleaned-urls">0</span>
+          <span class="stat-card-desc" id="stat-cleaned-params-desc">0 Tracking-Parameter entfernt</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card-title">Blockierte Social Embeds</span>
+          <span class="stat-card-number" id="stat-blocked-embeds">0</span>
+          <span class="stat-card-desc">Vor Netzwerkaufbau abgefangen</span>
+        </div>
+      </div>
+
+      <!-- Breakdowns Grid -->
+      <div class="breakdown-grid">
+        <!-- Embed Providers Breakdown -->
+        <div class="breakdown-card">
+          <h4>Social-Embed-Anbieter</h4>
+          <div class="breakdown-list" id="stats-providers-list">
+            <div class="empty-state">Noch keine Social Embeds blockiert</div>
+          </div>
+        </div>
+
+        <!-- Tracking Parameters Breakdown -->
+        <div class="breakdown-card">
+          <h4>Häufigste Tracking-Parameter</h4>
+          <div class="breakdown-list" id="stats-params-list">
+            <div class="empty-state">Noch keine Parameter bereinigt</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live-Einblicke (Audit-Tabelle) -->
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-header" style="margin-bottom: 8px;">
+          <div>
+            <h3 class="card-title" style="font-size: 15px;">Live-Einblicke: Was wurde blockiert?</h3>
+            <div class="card-desc">Chronologische Übersicht der blockierten Elemente dieser Sitzung (flüchtig im RAM).</div>
+          </div>
+        </div>
+
+        <div class="form-row" style="margin-top: 10px; margin-bottom: 10px;">
+          <input type="text" id="insights-search-input" placeholder="🔍 Einblicke nach Domain oder Details filtern...">
+        </div>
+
+        <div class="insights-table-wrapper">
+          <table class="insights-table">
+            <thead>
+              <tr>
+                <th style="width: 80px;">Zeit</th>
+                <th style="width: 130px;">Typ</th>
+                <th style="width: 180px;">Website / Host</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="insights-table-body">
+              <tr>
+                <td colspan="4" class="empty-state">Keine Einträge vorhanden</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- AnoFox Internes Log (Konsole-unabhängig) -->
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-header" style="margin-bottom: 8px;">
+          <div>
+            <h3 class="card-title" style="font-size: 15px;">AnoFox Internes Log (geht nicht über die Konsole)</h3>
+            <div class="card-desc">Eigenständiges, internes Protokoll im Speicher – völlig unabhängig von der Browser-Konsole.</div>
+          </div>
+          <div>
+            <select id="internal-log-level-filter" style="font-size: 11px; padding: 4px 8px; width: auto;">
+              <option value="ALL">Alle Level</option>
+              <option value="DEBUG">DEBUG</option>
+              <option value="INFO" selected>INFO & höher</option>
+              <option value="WARN">WARN & ERROR</option>
+              <option value="ERROR">Nur ERROR</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="log-console" id="internal-log-console">
+          <div class="empty-state" style="color: #64748b;">Keine internen Log-Einträge vorhanden.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: [ANOFOX] KONSOLE & LOG-LEVEL -->
+  <div class="tab-pane" id="tab-terminal">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">[AnoFox] Konsolen-Logging Hauptschalter</h2>
+          <div class="card-desc">Reguliert die Ausgabe von AnoFox-Meldungen in der Entwickler- oder Terminal-Konsole (`web-ext run`).</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="terminal-master-toggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div style="margin-top: 16px;">
+        <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Allgemeines Log-Level</label>
+        <select id="options-log-severity" style="margin-top: 6px;">
+          <option value="DEBUG">DEBUG - Ausführliche Diagnose & Netzwerk-Details</option>
+          <option value="INFO" selected>INFO - URL-Bereinigungen & Social Embed Events</option>
+          <option value="WARN">WARN - Warnungen & Redirect-Loop-Erkennung</option>
+          <option value="ERROR">ERROR - Nur kritische Fehler</option>
+          <option value="OFF">OFF - Konsolenausgabe vollständig stummschalten</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Präfix & Format</h2>
+      <div class="card-desc">
+        Alle Konsolenausgaben werden einheitlich mit dem Tag <code>[AnoFox]</code> und dem jeweiligen Log-Level (z. B. <code>[AnoFox][INFO]</code>) versehen. Die Ausgabe wird zentral und ausschließlich durch den obigen Schalter sowie die Stufe reguliert.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Datenschutz beim Logging</h2>
+      <div class="card-desc">
+        AnoFox maskiert sensible Abfrageparameter wie <code>token</code>, <code>key</code>, <code>secret</code>, <code>password</code>, <code>signature</code> und <code>auth</code> automatisch mit <code>[REDACTED]</code>, bevor sie im Terminal erscheinen. Es werden niemals Daten an Cloud-Server gesendet.
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: ALLGEMEIN & BACKUP -->
+  <div class="tab-pane" id="tab-backup">
+    <div class="card">
+      <h2 class="card-title">Konfiguration sichern & wiederherstellen</h2>
+      <div class="card-desc">Exportieren Sie Ihre Listen und Einstellungen als JSON-Datei oder laden Sie ein Backup.</div>
+
+      <div class="form-row" style="margin-top: 16px;">
+        <button type="button" id="btn-export-settings" class="btn-accent">📥 Konfiguration exportieren</button>
+        <button type="button" id="btn-import-trigger">📤 Konfiguration importieren</button>
+        <input type="file" id="import-file-input" accept=".json" style="display: none;">
+      </div>
+    </div>
+
+    <div class="card" style="border-color: var(--danger);">
+      <h2 class="card-title" style="color: var(--danger);">Werkseinstellungen</h2>
+      <div class="card-desc">Setzt alle Einstellungen, Ausnahmelisten und Provider-Toggles auf den Ausgangszustand zurück.</div>
+      <div style="margin-top: 16px;">
+        <button type="button" id="btn-reset-factory" class="btn-danger">⚠️ Auf Standardwerte zurücksetzen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="options.js"></script>
+</body>
+</html>

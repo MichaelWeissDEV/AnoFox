@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AnoFox</title>
+<style>
+  :root[data-theme="dark"], :root:not([data-theme="light"]) {
+    --bg-primary: #101b23;
+    --bg-secondary: #182830;
+    --bg-card: #1f343f;
+    --bg-input: #122027;
+    --accent: #6ad7b0;
+    --accent-hover: #83e3c0;
+    --accent-text: #0b1a20;
+    --text-primary: #edf6f5;
+    --text-muted: #95b3b1;
+    --danger: #f87171;
+    --border: #294653;
+    --border-hover: #3d667a;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  :root[data-theme="light"] {
+    --bg-primary: #f4f7f9;
+    --bg-secondary: #ffffff;
+    --bg-card: #f8fafc;
+    --bg-input: #f1f5f9;
+    --accent: #0d9488;
+    --accent-hover: #0f766e;
+    --accent-text: #ffffff;
+    --text-primary: #0f172a;
+    --text-muted: #64748b;
+    --danger: #ef4444;
+    --border: #e2e8f0;
+    --border-hover: #cbd5e1;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font: 13px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    width: 330px;
+    margin: 0;
+    padding: 14px;
+    user-select: none;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo-badge {
+    background: var(--accent);
+    color: var(--accent-text);
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .icon-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all .15s;
+    padding: 0;
+  }
+
+  .icon-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--accent);
+  }
+
+  .site-rule-row { display: flex; gap: 6px; margin-top: 8px; }
+  .site-rule-row select { flex: 1; min-width: 0; }
+  .site-rules { margin-top: 6px; font-size: 11px; color: var(--text-muted); }
+  .site-rules div { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 2px 0; }
+  .site-rules button { padding: 0 6px; font-size: 12px; background: none; border: none; color: var(--text-muted); cursor: pointer; }
+  #profile-select { max-width: 110px; }
+  .toggle-row select, .site-rule-row select { background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; font-size: 12px; }
+
+  .card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+
+  /* Current site block */
+  .site-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .site-domain {
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 175px;
+  }
+
+  .site-badges {
+    display: flex;
+    gap: 5px;
+    margin-top: 8px;
+  }
+
+  .badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+
+  .badge.active {
+    background: var(--bg-card);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* Toggle rows */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .toggle-label {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+
+  .toggle-desc {
+    color: var(--text-muted);
+    font-size: 11px;
+    margin-top: 2px;
+    line-height: 1.3;
+  }
+
+  /* Switch styling */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 38px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: var(--border);
+    transition: .2s;
+    border-radius: 22px;
+  }
+
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .2s;
+    border-radius: 50%;
+  }
+
+  input:checked + .slider {
+    background-color: var(--accent);
+  }
+
+  input:checked + .slider:before {
+    transform: translateX(16px);
+    background-color: var(--accent-text);
+  }
+
+  /* Buttons */
+  button {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  button:hover {
+    background: var(--bg-primary);
+    border-color: var(--accent);
+  }
+
+  button.btn-accent {
+    background: var(--accent);
+    color: var(--accent-text);
+    font-weight: 600;
+    border-color: var(--accent);
+  }
+
+  button.btn-accent:hover {
+    background: var(--accent-hover);
+  }
+
+  button.btn-full {
+    width: 100%;
+    margin-top: 6px;
+    padding: 8px 12px;
+    font-weight: 600;
+  }
+
+  button.btn-sm {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  /* Status message */
+  #status {
+    min-height: 16px;
+    font-size: 11px;
+    color: var(--accent);
+    margin: 6px 0 0;
+    text-align: center;
+  }
+
+  footer {
+    margin-top: 8px;
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>AnoFox <span class="logo-badge">Guard</span></h1>
+  <div class="header-actions">
+    <button type="button" class="icon-btn" id="theme-toggle-btn" title="Design umschalten (Hell/Dunkel)">🌙</button>
+    <button type="button" class="icon-btn" id="btn-open-options-icon" title="Details & Listen in neuem Tab öffnen">⚙️</button>
+  </div>
+</header>
+
+<!-- Current site card -->
+<div class="card">
+  <div class="site-header">
+    <span class="site-domain" id="current-domain">Lade Seite...</span>
+    <button type="button" id="toggle-site-btn" class="btn-sm" disabled>Ausnahme</button>
+  </div>
+  <div class="site-badges">
+    <span class="badge" id="badge-cleaner">Cleaner: Aktiv</span>
+    <span class="badge" id="badge-embed">Embeds: Geschützt</span>
+  </div>
+</div>
+
+<!-- Profile & site rules -->
+<div class="card">
+  <div class="toggle-row">
+    <div>
+      <label class="toggle-label" for="profile-select">Schutzprofil (alle Websites)</label>
+      <div class="toggle-desc" id="profile-desc"></div>
+    </div>
+    <select id="profile-select" aria-label="Schutzprofil">
+      <option value="balanced">Balanced</option>
+      <option value="strict">Strict</option>
+      <option value="lockdown">Lockdown</option>
+      <option value="custom" disabled>Custom</option>
+    </select>
+  </div>
+  <div class="site-rule-row">
+    <select id="site-rule-duration" aria-label="Dauer der Freigabe">
+      <option value="tab">Bis Tab geschlossen</option>
+      <option value="session">Bis Browserende</option>
+      <option value="permanent">Dauerhaft</option>
+    </select>
+    <button type="button" id="btn-allow-scripts" class="btn-sm" disabled>Skripte hier erlauben</button>
+  </div>
+  <div class="site-rule-row">
+    <button type="button" id="btn-pause-adblock" class="btn-sm" disabled style="flex:1">Werbeblocker hier pausieren</button>
+  </div>
+  <div id="site-rules" class="site-rules"></div>
+</div>
+
+<!-- Site data policy -->
+<div class="card">
+  <div class="toggle-row">
+    <div>
+      <label class="toggle-label" for="site-policy-select">Daten dieser Website</label>
+      <div class="toggle-desc" id="site-policy-desc">Cookies &amp; Speicher</div>
+    </div>
+    <select id="site-policy-select" aria-label="Richtlinie für diese Website" disabled>
+      <option value="">Standard</option>
+      <option value="persistent">Persistent</option>
+      <option value="session">Session</option>
+      <option value="ephemeral">Ephemeral</option>
+    </select>
+  </div>
+</div>
+
+<!-- Switch 1: URL Tracking Cleaner -->
+<div class="card">
+  <div class="toggle-row">
+    <div>
+      <label class="toggle-label" for="cleaner-enabled">URL-Tracking-Bereinigung</label>
+      <div class="toggle-desc">Entfernt utm_*, fbclid & Tracking-Parameter.</div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="cleaner-enabled" checked>
+      <span class="slider"></span>
+    </label>
+  </div>
+</div>
+
+<!-- Switch 2: Social Embed Guard -->
+<div class="card">
+  <div class="toggle-row">
+    <div>
+      <label class="toggle-label" for="embeds-enabled">Social Embed Guard</label>
+      <div class="toggle-desc">Blockiert YouTube, Instagram, TikTok & Facebook vor Netzwerkstart.</div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="embeds-enabled" checked>
+      <span class="slider"></span>
+    </label>
+  </div>
+</div>
+
+<!-- Switch 3: Terminal Logging -->
+<div class="card">
+  <div class="toggle-row">
+    <div>
+      <label class="toggle-label" for="terminal-logging">[AnoFox] Konsole-Logs</label>
+      <div class="toggle-desc">Ausgabe mit [AnoFox]-Präfix im Dev-Terminal.</div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="terminal-logging" checked>
+      <span class="slider"></span>
+    </label>
+  </div>
+</div>
+
+<!-- Switch 4: Ephemeral Privacy Stats & Internal Log -->
+<div class="card">
+  <div class="toggle-row">
+    <div>
+      <label class="toggle-label" for="stats-enabled">Temporäre Statistik</label>
+      <div class="toggle-desc" id="stats-summary-desc">Standard: Aus &bull; Flüchtig im RAM.</div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="stats-enabled">
+      <span class="slider"></span>
+    </label>
+  </div>
+</div>
+
+<!-- Open Full Dashboard Button -->
+<button type="button" id="btn-open-options" class="btn-full btn-accent">
+  ⚙️ Erweiterte Listen & Details öffnen ↗
+</button>
+
+<p id="status" role="status"></p>
+
+<footer>
+  AnoFox &bull; Lokale Privatsphäre ohne Cloud
+</footer>
+
+<script src="popup.js"></script>
+</body>
+</html>
