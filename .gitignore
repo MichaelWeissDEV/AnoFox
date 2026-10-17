@@ -1,0 +1,18 @@
+# dependencies and build output
+node_modules/
+dist/
+dist-e2e/
+web-ext-artifacts/
+
+# logs and temporary data
+*.log
+*.tmp
+.DS_Store
+.env
+result*.json
+coverage/
+
+# local tool state
+.claude/
+.vscode/
+.idea/

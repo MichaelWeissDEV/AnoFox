@@ -1,0 +1,40 @@
+{
+  "name": "anofox",
+  "version": "0.1.0",
+  "description": "AnoFox: lokale Privatsphäre- und Sicherheitskontrolle für Firefox (Manifest V3)",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "keywords": [
+    "firefox",
+    "webextension",
+    "privacy",
+    "security",
+    "tracking-protection",
+    "adblock",
+    "cookies"
+  ],
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test --experimental-strip-types test/**/*.test.ts",
+    "dev": "npm run build && web-ext run --source-dir dist --pref extensions.dnr.feedback=true",
+    "typecheck": "tsc --noEmit -p .",
+    "lint": "npm run typecheck && npm run build && web-ext lint --source-dir dist",
+    "test:firefox:csp": "node --experimental-strip-types --no-warnings test/firefox/csp/run.mjs",
+    "test:firefox:privacy": "node --no-warnings test/firefox/privacy/run.mjs",
+    "test:firefox": "npm run test:firefox:csp && npm run test:firefox:privacy && npm run test:firefox:navigator && npm run test:firefox:storage",
+    "test:firefox:navigator": "node --no-warnings test/firefox/navigator/run.mjs",
+    "test:firefox:storage": "node --no-warnings test/firefox/storage/run.mjs",
+    "test:e2e": "node --no-warnings test/firefox/e2e/run.mjs",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@types/firefox-webext-browser": "^120.0.4",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.8.0",
+    "web-ext": "^10.8.0"
+  }
+}
