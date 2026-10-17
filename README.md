@@ -37,7 +37,7 @@ Leitlinien:
 ## Was AnoFox kann
 
 Der Status bezieht sich auf **Firefox 158 (Desktop, macOS)**. „E2E“ heißt: von einer Testsuite mit der gebauten Erweiterung in
-echtem Firefox belegt (`npm run test:e2e`, 77 Prüfungen).
+echtem Firefox belegt (`npm run test:e2e`, 83 Prüfungen).
 
 | Bereich | Funktion | Status |
 |---|---|---|
@@ -46,7 +46,7 @@ echtem Firefox belegt (`npm run test:e2e`, 77 Prüfungen).
 | **Schutzprofile** | Balanced / Strict / Lockdown / Custom, Stufe je Modul, Profilwechsel löscht nie deine Ausnahmen | ✅ E2E |
 | **Skript-Kontrolle** | Strict: Drittanbieter-Skripte blockiert (vor dem Netzwerk). Lockdown: gar kein JavaScript. Modul „Inline-Skripte & Eval“: Inline/Event-Handler/`eval`/Wasm per Content-Security-Policy (Strict: nur externe Quellen, Lockdown: nichts). Ausnahmen pro Website (dauerhaft/Sitzung/Tab) | ✅ E2E + Firefox-Tests der CSP-Wirkung |
 | **Netzwerk-Firewall** | Drittanbieter-Frames/-Fonts (Strict) bzw. alle Drittanbieter-Ressourcen außer Bildern (Lockdown), Regeln pro Website/Ziel | ✅ Regeln per Modell und Firefox getestet |
-| **Werbe-/Tracker-Filter** | Parser und DNR-Compiler für Filterlisten (EasyList, EasyPrivacy, AdGuard Base), `$important`, Ausnahmen, `$badfilter`, Host-Gruppierung, Kosmetik-Filter (Elemente ausblenden), „Werbeblocker auf dieser Website pausieren“ | 🧪 experimentell: E2E mit lokal eingespielter Liste; Netzwerk-Download und Regelkontingent in Firefox noch nicht E2E geprüft |
+| **Werbe-/Tracker-Filter** | Parser und DNR-Compiler für Filterlisten (EasyList, EasyPrivacy, AdGuard Base), `$important`, Ausnahmen, `$badfilter`, Host-Gruppierung, Kosmetik-Filter (Elemente ausblenden), „Werbeblocker auf dieser Website pausieren“; optional **mitgelieferte Schnappschuss-Listen** (statische Rulesets, 30 000-Regel-Pool, nur wenn beim Bauen erzeugt, siehe `docs/architecture/static-rulesets.md`) | 🧪 experimentell: Download-Listen mit Teilabdeckung (5 000-Regel-Grenze); Schnappschuss-Mechanik E2E mit Fixture, echte Listen nur in der Regelmengen-Messung |
 | **Listen-Updater** | HTTPS-Allowlist, ETag/Last-Modified, Größen-/Zeitlimits, Plausibilitätsprüfung, SHA-256, Rollback; ohne Cookies/Referrer/besuchte URLs | 🧪 Unit-getestet gegen Fakes |
 | **Cookie Vault** | Richtlinie pro Website: persistent / Session / ephemeral; Bereinigung nach dem Schließen des letzten Tabs (je Container), beim Browserstart und manuell; partitionierte Cookies; Überprüfung des Ergebnisses | ✅ E2E (Tab schließen); Browserstart per Unit-Test |
 | **Website-Speicher** | localStorage, IndexedDB und Service Worker nach Richtlinie löschen | ✅ Reichweite in Firefox gemessen; Grenzen siehe unten |

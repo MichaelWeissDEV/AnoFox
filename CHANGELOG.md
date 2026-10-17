@@ -39,7 +39,10 @@ Versionierung nach [SemVer](https://semver.org/lang/de/). Solange die erste Vers
 - **Statische Rulesets geprüft** (`npm run test:firefox:static`, `docs/architecture/static-rulesets.md`): Pool von 30 000 Regeln in
   Firefox 158 gemessen (31 000 scheitern, 1 001 Regex-Regeln scheitern, keine Navigationsbremse), Lizenzentscheidung (nur
   EasyList/EasyPrivacy unter GPLv3+, keine AdGuard-/Bedrohungslisten), Bau-Werkzeug `npm run build:rulesets`. Es wird noch
-  keine Liste mitgeliefert.
+  keine Liste im Repository.
+- **Mitgelieferte Listen (Schnappschuss)**: optionale statische Rulesets (EasyList/EasyPrivacy, GPLv3+), Schalter in den Optionen, gegenseitig
+  ausschließend mit dem Download derselben Liste, Kosmetikfilter aus dem Bundle, Abgleich bei Modul-Aus/Pause. Die Pakete enthalten
+  sie nur, wenn `npm run build:rulesets` gelaufen ist. E2E mit Fixture-Bundle (6 Prüfungen, insgesamt 83).
 - Logo und Erweiterungs-Icons.
 - Tests: Unit-Tests, Firefox-Messsuiten (CSP, `privacy`-API, Navigator, Löschreichweite) und eine
   **Ende-zu-Ende-Suite mit der gebauten Erweiterung in echtem Firefox** (76 Prüfungen).
@@ -54,6 +57,7 @@ Versionierung nach [SemVer](https://semver.org/lang/de/). Solange die erste Vers
 - Lizenz: **GPL-3.0-or-later**.
 
 ### Behoben
+- Warnseite: Beim dunklen Farbschema war der Haupt-Button weiß auf hellem Grün (Kontrast 1,5); vom E2E-Kontrasttest gefunden.
 - Embed-Ausnahmen wirkten nie: Sie nutzten `requestDomains` (Zielhost) statt `initiatorDomains` (einbettende Seite).
 - Die Auth-/Signatur-Ausnahme (Priorität 10) hob Embed-Blöcke auf; Regeln leben jetzt in getrennten Prioritätsbändern.
 - „Temporäre“ Embed-Freigaben waren dauerhaft (dynamische Regeln); jetzt Sitzungsregeln für exakt eine URL, nur bekannte

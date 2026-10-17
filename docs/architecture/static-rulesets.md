@@ -10,8 +10,10 @@ Andere Versionen und Betriebssysteme sind nicht geprüft.
 - EasyList + EasyPrivacy passen vollständig hinein (gemessen: **13 042 Regeln**, 25 Regex-Regeln), die dynamische Variante
   schafft nur ca. 3 600 von 13 000 (siehe `filter-lists.md`).
 - Der Preis: ein statisches Ruleset ist ein **Schnappschuss**. Er ändert sich nur mit einer neuen Erweiterungsversion.
-- Aktuell wird **keine Liste mitgeliefert**. Das Werkzeug dafür existiert (`npm run build:rulesets`), die Ausgabe liegt in
-  `build/` (git-ignoriert). Die Laufzeitanbindung (Schalter, UI, Ausschluss gegenüber dynamischen Listen) ist noch nicht gebaut.
+- Im Repository liegt **keine Liste**. `npm run build:rulesets` erzeugt `build/rulesets/` (git-ignoriert); `npm run build` nimmt die
+  Ausgabe automatisch ins Paket auf (`ANOFOX_NO_BUNDLE=1` unterdrückt das). Ohne Bundle zeigt die Oberfläche „keine mitgelieferten
+  Listen“. Die Laufzeitanbindung ist gebaut und in Firefox 158 mit einem Fixture-Bundle E2E-geprüft; **mit den echten Listen wurde die
+  Anbindung noch nicht E2E-getestet** (nur die Regelmenge in der Messsuite).
 
 ## Gemessene Grenzen (`declarativeNetRequest.MAX_*`, Firefox 158)
 
@@ -59,7 +61,7 @@ Pflichten bei Mitlieferung: Lizenztext und Quelle im Paket (`NOTICE`), Hinweis i
 Das Bau-Skript schreibt Lizenz, Quelle, Prüfsumme und Abrufzeit je Liste in `index.json`. Dies ist keine Rechtsberatung; vor
 einem echten Release sollte die Lizenzlage der dann aktuellen Listenköpfe erneut geprüft werden.
 
-## Entwurf für die Laufzeit (noch nicht umgesetzt)
+## Laufzeit (umgesetzt, `src/browser/background/static-rulesets.ts`)
 
 1. **Ausschluss:** Eine Liste ist entweder gebündelt (statisch) oder heruntergeladen (dynamisch), nie beides. Gleiche `id`
    (`easylist`, `easyprivacy`) erzwingt das.
@@ -67,9 +69,12 @@ einem echten Release sollte die Lizenzlage der dann aktuellen Listenköpfe erneu
    akzeptiert die Teilabdeckung (oder kombiniert: statisch als Basis, dynamisch nur für Eigenes).
 3. **Kosmetik:** Kosmetikfilter sind keine DNR-Regeln; sie werden separat (`cosmetic-<id>.json`, 2,3 MB für EasyList) geladen.
 4. **Paketgröße:** gemessen ca. 3,6 MB Regeln + 2,3 MB Kosmetik, unkomprimiert.
-5. **Modulschalter:** Adblock-Modul aus ⇒ `updateEnabledRulesets` deaktiviert; Pause pro Website bleibt über Allow-Regeln
-   höherer Priorität wirksam (muss per E2E belegt werden, bevor es zugesagt wird).
-6. **Manifest:** `declarative_net_request.rule_resources` darf nur vorhanden sein, wenn ein Bundle gebaut wurde.
+5. **Modulschalter:** Adblock-Modul aus ⇒ `updateEnabledRulesets` deaktiviert, wieder an ⇒ aktiviert (E2E). Die Pause pro Website
+   (`allowAllRequests`, Priorität 5) hebt die statischen Regeln (Priorität 1–3) auf, nur für diese Website (E2E).
+6. **Manifest:** `declarative_net_request.rule_resources` wird von `build.mjs` nur eingetragen, wenn ein Bundle vorliegt; alle
+   Rulesets starten mit `enabled: false`. Die Wahl des Nutzers liegt in `storage.local` (`static:wanted`), der Browser-Zustand wird bei
+   jeder Regelanwendung abgeglichen.
+7. **E2E:** Der E2E-Build verwendet ein kleines Fixture-Bundle (3 Regeln), nie die echten Listen.
 
 ## Werkzeuge
 

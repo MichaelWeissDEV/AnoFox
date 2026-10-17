@@ -4,7 +4,12 @@ AnoFox selbst steht unter **GPL-3.0-or-later** (siehe `LICENSE`).
 
 ## Filterlisten (Daten Dritter, nicht Teil dieses Repositories)
 
-AnoFox liefert **keine** Filterlisten mit. Sie werden nur auf ausdrücklichen Wunsch zur Laufzeit von den Anbietern geladen.
+Das Repository enthält **keine** Filterlisten. Sie werden nur auf ausdrücklichen Wunsch zur Laufzeit von den Anbietern geladen.
+
+**Ausnahme Schnappschuss-Pakete:** Wer `npm run build:rulesets` ausführt, bevor er `npm run build` startet, erhält ein Paket mit EasyList und
+EasyPrivacy als statischen Rulesets. Diese werden unter der GPLv3+-Option der Doppellizenz weitergegeben (Namensnennung: „The EasyList
+authors (https://easylist.to/)“, Quelle und Datum stehen in `rulesets/index.json` und in den Optionen). AdGuard-Listen (nur GPL-3.0) und
+Bedrohungslisten werden nie mitgeliefert. Details: `docs/architecture/static-rulesets.md`.
 Lizenzstand nach Websuche (2026-10-16); vor einem Release gegen Dateikopf und Repository-LICENSE der Anbieter prüfen:
 
 | Liste | Quelle | Lizenz | Namensnennung |
