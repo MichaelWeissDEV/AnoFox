@@ -269,6 +269,68 @@ async function main(): Promise<void> {
     assert(requested(log, T, '/ad-tracker.js'), 'list off -> no blocking');
   });
 
+  // ---------------------------------------------------------------- bundled list snapshots (static rulesets, fixture bundle)
+  await reset();
+  const bundledPage = async (host = A): Promise<{ hidden: Record<string, string>; log: Array<{ host: string; url: string }> }> => {
+    await serverReset();
+    return withTab(`http://${host}/bundled.html`, async (tab) => {
+      await sleep(2000);
+      const hidden = await run(tab.id!, () => Object.fromEntries(['.bundled-ad', '.bundled-site-ad', '.keep'].map((s) => [s, getComputedStyle(document.querySelector(s)!).display])));
+      return { hidden, log: await serverLog() };
+    });
+  };
+  await check('bundled: package ships a snapshot but nothing is active until the user opts in', async () => {
+    const st = await send({ type: 'GET_STATIC_LISTS' });
+    assert(st.success && st.available && st.lists.length === 1, 'index: ' + JSON.stringify(st));
+    eq(await browser.declarativeNetRequest.getEnabledRulesets(), [], 'enabled rulesets');
+    const { log, hidden } = await bundledPage();
+    assert(requested(log, T, '/bundled-ad.js'), 'default: not blocked');
+    eq(hidden['.bundled-ad'], 'block', 'default: not hidden');
+  });
+  await check('bundled: enabling blocks before the network, exception wins, cosmetic filters work (generic and per site)', async () => {
+    const r = await send({ type: 'SET_STATIC_LIST', id: 'easylist', enabled: true });
+    assert(r.success, JSON.stringify(r));
+    eq(await browser.declarativeNetRequest.getEnabledRulesets(), ['bundled-easylist'], 'enabled rulesets');
+    const { log, hidden } = await bundledPage();
+    assert(!requested(log, T, '/bundled-ad.js'), 'bundled-ad must be blocked');
+    assert(requested(log, T, '/bundled-ok.js'), 'exception must win');
+    eq(hidden, { '.bundled-ad': 'none', '.bundled-site-ad': 'none', '.keep': 'block' }, 'computed display on site A');
+    eq((await bundledPage(B)).hidden['.bundled-site-ad'], 'block', 'site-specific selector must not leak to B');
+  });
+  await check('bundled: survives an applyPolicy round (profile change) and "pause adblock" lifts it for that site only', async () => {
+    await send({ type: 'SET_PROFILE', profile: 'strict' });
+    await send({ type: 'SET_PROFILE', profile: 'balanced' });
+    eq(await browser.declarativeNetRequest.getEnabledRulesets(), ['bundled-easylist'], 'still enabled');
+    await send({ type: 'ADD_USER_RULE', rule: { module: 'adblock', effect: 'allow', duration: 'permanent', scope: { kind: 'site', site: A } } });
+    const paused = await bundledPage();
+    assert(requested(paused.log, T, '/bundled-ad.js'), 'paused: ad loads');
+    eq(paused.hidden['.bundled-ad'], 'block', 'paused: not hidden');
+    assert(!requested((await bundledPage(B)).log, T, '/bundled-ad.js'), 'other sites stay protected');
+    await send({ type: 'REMOVE_USER_RULE', id: (await send({ type: 'GET_SETTINGS' })).settings.rules.find((x: any) => x.module === 'adblock')?.id });
+  });
+  await check('bundled: a downloaded list with the same id replaces the snapshot (exclusive), and vice versa', async () => {
+    await seedList(LIST);
+    eq(await browser.declarativeNetRequest.getEnabledRulesets(), [], 'snapshot turned off by the downloaded list');
+    const st = await send({ type: 'GET_STATIC_LISTS' });
+    eq(st.lists[0].wanted, false, 'wanted flag cleared');
+    const r = await send({ type: 'SET_STATIC_LIST', id: 'easylist', enabled: true });
+    assert(r.success, JSON.stringify(r));
+    eq((await send({ type: 'GET_LISTS' })).lists.find((l: any) => l.id === 'easylist').state.enabled, false, 'downloaded list turned off by the snapshot');
+    eq(await browser.declarativeNetRequest.getEnabledRulesets(), ['bundled-easylist'], 'snapshot active');
+  });
+  await check('bundled: unknown ids are refused; module "off" in a custom profile disables the snapshot and re-enabling restores it', async () => {
+    assert(!(await send({ type: 'SET_STATIC_LIST', id: 'nope', enabled: true })).success, 'unknown id accepted');
+    await send({ type: 'SET_MODULE_LEVEL', module: 'adblock', level: 'off' });
+    eq(await browser.declarativeNetRequest.getEnabledRulesets(), [], 'module off -> snapshot off');
+    await send({ type: 'SET_MODULE_LEVEL', module: 'adblock', level: 'balanced' });
+    eq(await browser.declarativeNetRequest.getEnabledRulesets(), ['bundled-easylist'], 'module balanced -> snapshot back');
+  });
+  await check('bundled: reset removes the choice and the rules', async () => {
+    await send({ type: 'RESET_SETTINGS' });
+    eq(await browser.declarativeNetRequest.getEnabledRulesets(), [], 'enabled rulesets after reset');
+    eq((await send({ type: 'GET_STATIC_LISTS' })).lists[0].wanted, false, 'wanted after reset');
+  });
+
   // ---------------------------------------------------------------- Cookie Vault
   await reset();
   await send({ type: 'SET_STORAGE_GRACE', ms: 0 });

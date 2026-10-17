@@ -71,6 +71,7 @@ const server = http.createServer((req, res) => {
     case '/imp.js': return send('text/javascript', "document.title += ' imp';");
     case '/embed.html': return send('text/html', '<!doctype html><title>embed</title><p id="x">page</p><iframe id="emb" src="http://player.twitch.tv/?channel=x" width="300" height="150"></iframe>');
     case '/': return send('text/html', '<!doctype html><title>twitch</title>player');
+    case '/bundled.html': return send('text/html', '<!doctype html><title>bu</title><div class="bundled-ad">AD</div><div class="bundled-site-ad">SA</div><div class="keep">C</div><script src="http://anofox-t.net/bundled-ad.js"></script><script src="http://anofox-t.net/bundled-ok.js"></script>');
     case '/adblock.html': return send('text/html', '<!doctype html><title>ab</title><div class="ad-banner">AD</div><div class="site-ad">SA</div><div class="keep" id="content">C</div><script src="http://anofox-t.net/ad-tracker.js"></script><script src="http://anofox-t.net/ok.js"></script><script src="http://anofox-t.net/imp.js"></script>');
     case '/cookie.html': return send('text/html', '<!doctype html><title>cookie</title><script>localStorage.setItem("k","v"); document.cookie = "js=1; Max-Age=3600; path=/"; document.documentElement.dataset.ready = "1";</script>', { 'set-cookie': ['sid=1; Path=/; HttpOnly', 'pers=1; Path=/; Max-Age=3600'] });
     case '/state.html': return send('text/html', `<!doctype html><title>state</title><script>${STATE}</script>`);
