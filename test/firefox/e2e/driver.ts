@@ -22,7 +22,9 @@ const sendRaw = async (msg: Record<string, unknown>): Promise<any> => Promise.ra
 function ping(m: string) { return pingImpl(m); }
 const pingImpl = (m: string) => fetch(`${SERVER}/__ping?m=${encodeURIComponent(m)}`).catch(() => undefined);
 ping('driver loaded');
+let filter: RegExp | null = null; // optional E2E_FILTER=regex: only run matching checks (fast iteration)
 async function check(name: string, fn: () => Promise<void> | void): Promise<void> {
+  if (filter && !filter.test(name)) return;
   try { await fn(); results.push({ name, ok: true }); await ping('ok ' + name); }
   catch (e) { results.push({ name, ok: false, detail: String((e as Error)?.message ?? e).slice(0, 500) }); await ping('FAIL ' + name + ' :: ' + String((e as Error)?.message ?? e).slice(0, 200)); }
 }
@@ -77,6 +79,8 @@ async function seedList(text: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  const f = await (await fetch(`${SERVER}/__filter`)).text().catch(() => '');
+  if (f) filter = new RegExp(f, 'i');
   // ---------------------------------------------------------------- startup
   await check('startup: background answers with schema v2 defaults (balanced, nothing enabled that should not be)', async () => {
     for (let i = 0; i < 20; i++) { const r = await send({ type: 'GET_SETTINGS' }).catch(() => null); if (r?.success) { eq(r.settings.schemaVersion, 2, 'schema'); eq(r.settings.profile, 'balanced', 'profile'); return; } await sleep(300); }
@@ -285,6 +289,99 @@ async function main(): Promise<void> {
     await sleep(800);
     await send({ type: 'CLEAN_SITE_NOW', site: B });
     assert((await cookieCount(B)) >= 3, 'persistent site must not be cleaned manually either');
+  });
+
+
+  // ---------------------------------------------------------------- Cookie-banner manager (fixtures, not vendor scripts)
+  const cmp = async (path: string, host = A, waitMs = 7000, expectOutcome = true): Promise<{ consent?: string; other?: string; clicked?: string; display: string | null }> =>
+    withTab(`http://${host}${path}`, async (tab) => {
+      const end = Date.now() + waitMs;
+      while (Date.now() < end) {
+        const done = await run(tab.id!, () => document.documentElement.dataset.consent !== undefined).catch(() => false);
+        if (expectOutcome && done) break;
+        await sleep(250);
+      }
+      return run(tab.id!, () => {
+        const root = document.querySelector('[data-cmp-root], #usercentrics-root') as HTMLElement | null;
+        const target = (root && (root.querySelector('#onetrust-banner-sdk, #didomi-popup, .cookie-notice, .qc-cmp2-summary-buttons') as HTMLElement | null)) || root;
+        return { ...(document.documentElement.dataset as Record<string, string>), display: target ? getComputedStyle(target).display : null };
+      });
+    });
+  const fx = (name: string) => `/cmp/page.html?f=${name}`;
+  // Note: earlier sections toggle resistFingerprinting and Firefox may leave the headless window at 300x150, so the
+  // fixtures use a slim bar (40px) that stays below the "wall" threshold (50% of the viewport) even in that window.
+  await reset();
+  const rejected: Array<[string, string, string]> = [
+    ['OneTrust (reject button on the first layer)', fx('onetrust'), 'rejected'],
+    ['OneTrust (refusal only inside the preference center)', fx('onetrust-pc'), 'rejected'],
+    ['Cookiebot (decline button)', fx('cookiebot'), 'rejected'],
+    ['Cookiebot (only "allow selection": optional purposes get unchecked first)', fx('cookiebot-selection'), 'selection:necessary'],
+    ['Usercentrics (inside an open shadow root)', '/cmp/usercentrics.html', 'rejected'],
+    ['Klaro', fx('klaro'), 'rejected'],
+    ['Didomi (IAB TCF)', fx('didomi'), 'rejected'],
+    ['Quantcast Choice (IAB TCF)', fx('quantcast'), 'rejected'],
+    ['unknown German dialog (generic detector, "Nur notwendige")', fx('generic-de'), 'rejected'],
+    ['full-screen wall dialog is still refused through its own reject button', fx('wall'), 'rejected']
+  ];
+  for (const [name, path, expected] of rejected) {
+    await check(`consent reject: ${name}`, async () => { eq((await cmp(path)).consent, expected, 'outcome'); });
+  }
+  await check('consent reject: dialogs that only offer accept/customize are left completely alone', async () => {
+    const r = await cmp(fx('trap'), A, 4000, false);
+    eq([r.consent, r.other, r.display === 'none'], [undefined, undefined, false], 'trap dialog must stay untouched');
+  });
+  await check('consent reject: a vendor id on a control labelled "Accept all" is NEVER clicked', async () => {
+    const r = await cmp(fx('trap-spoof'), A, 4000, false);
+    eq([r.consent, r.display === 'none'], [undefined, false], 'spoofed reject id');
+  });
+  await check('consent reject: buttons outside a consent dialog are never clicked', async () => {
+    const r = await cmp('/cmp/nonbanner.html', A, 3500, false);
+    eq(r.clicked, undefined, 'article buttons');
+  });
+  await check('consent: nothing in the whole suite ever resulted in accepted consent', async () => {
+    for (const [, path] of rejected) { const r = await cmp(path, A, 1500, true); assert(r.consent !== 'accepted', `${path} accepted`); }
+  });
+
+  await check('consent hide: a non-blocking bar is hidden without any click or consent', async () => {
+    await send({ type: 'SET_CONSENT_MODE', mode: 'hide' });
+    const r = await cmp(fx('onetrust'), A, 5000, false);
+    const st = await send({ type: 'GET_CONSENT_STATUS' });
+    eq([r.display, r.consent], ['none', undefined], 'bar hidden, no decision recorded; stats ' + JSON.stringify(st.stats) + ' mode ' + st.mode);
+  });
+  await check('consent hide: a blocking wall is NOT hidden (would hide a required interaction)', async () => {
+    const r = await cmp(fx('wall'), A, 4500, false);
+    assert(r.display !== 'none' && r.consent === undefined, `wall: ${JSON.stringify(r)}`);
+  });
+  await check('consent hide: dialogs without a clear refuse/accept pair stay visible', async () => {
+    const r = await cmp(fx('trap'), A, 4000, false);
+    assert(r.display !== 'none', 'trap must not be hidden');
+  });
+  await check('consent manual: AnoFox does not touch banners', async () => {
+    await send({ type: 'SET_CONSENT_MODE', mode: 'manual' });
+    const r = await cmp(fx('onetrust'), A, 4000, false);
+    eq([r.consent, r.display === 'none'], [undefined, false], 'manual');
+  });
+  await check('consent: module switched off beats an explicit reject mode', async () => {
+    await send({ type: 'SET_CONSENT_MODE', mode: 'reject' });
+    await send({ type: 'SET_MODULE_LEVEL', module: 'consent', level: 'off' });
+    const r = await cmp(fx('onetrust'), A, 4000, false);
+    eq(r.consent, undefined, 'off');
+  });
+  await check('consent: a per-site rule pauses the automation for that site only', async () => {
+    await reset();
+    await send({ type: 'ADD_USER_RULE', rule: { module: 'consent', effect: 'allow', duration: 'permanent', scope: { kind: 'site', site: A } } });
+    const paused = await cmp(fx('onetrust'), A, 4000, false);
+    eq(paused.consent, undefined, 'paused site');
+    eq((await cmp(fx('onetrust'), B)).consent, 'rejected', 'other site');
+  });
+  await check('consent: status reports honest counters and rejects unknown modes', async () => {
+    await reset();
+    await cmp(fx('klaro'));
+    const st = await send({ type: 'GET_CONSENT_STATUS' });
+    assert(st.success && st.mode === 'reject' && st.stats.klaro?.rejected >= 1, 'stats ' + JSON.stringify(st.stats));
+    assert(st.adapters.some((a: { id: string }) => a.id === 'usercentrics'), 'adapter list');
+    eq((await send({ type: 'SET_CONSENT_MODE', mode: 'accept-all' })).success, false, 'unknown mode');
+    eq((await send({ type: 'GET_CONSENT_STATUS' })).setting, 'auto', 'unchanged');
   });
 
   // ---------------------------------------------------------------- native Firefox settings
