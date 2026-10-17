@@ -15,7 +15,8 @@ await build({
     'src/popup.ts',
     'src/options.ts',
     'src/content-embed-guard.ts',
-    'src/content-cosmetic.ts'
+    'src/content-cosmetic.ts',
+    'src/content-consent.ts'
   ],
   outdir,
   bundle: true,

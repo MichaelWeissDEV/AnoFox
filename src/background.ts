@@ -23,6 +23,9 @@ import {
 import type { SocialEmbedProviders } from './embed-guard.ts';
 import { privacyStats } from './stats.ts';
 
+import { effectiveConsentMode } from './protection/consent/mode.ts';
+import type { ConsentModeSetting } from './protection/consent/mode.ts';
+import { ADAPTERS } from './protection/consent/adapters.ts';
 import { createStorageService } from './browser/background/storage-service.ts';
 import { planNative, applyNative } from './protection/fingerprint/native.ts';
 import type { PrivacyApi, NativeStatus } from './protection/fingerprint/native.ts';
@@ -605,6 +608,46 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
         return { success: false };
       }
       return { success: true, active: true };
+    }
+
+    case 'CONSENT_GET_CONFIG': {
+      const url = sender.tab?.url;
+      let host: string | null = null;
+      try { const u = new URL(url ?? ''); host = u.protocol === 'http:' || u.protocol === 'https:' ? u.hostname.toLowerCase() : null; } catch { host = null; }
+      if (!host || sender.frameId !== 0 || typeof sender.tab?.id !== 'number') return { success: false };
+      const level = effectiveLevels(policyStateOf(activeSettings)).consent;
+      const mode = effectiveConsentMode(activeSettings.consentMode, level);
+      // a user rule (module consent, allow) switches the automation off for a site / tab
+      const paused = pickRule(activeSettings.rules, 'consent', { topHost: host, targetUrl: `https://${host}/`, resourceType: 'main_frame', tabId: sender.tab.id }, host, Date.now());
+      return { success: true, mode, active: mode !== 'manual' && !(paused && paused.effect === 'allow') };
+    }
+
+    case 'CONSENT_REPORT': {
+      const adapter = String(message.adapter ?? '');
+      const action = String(message.action ?? '');
+      if (!ADAPTERS.some((a) => a.id === adapter) || !['rejected', 'hidden', 'failed', 'wall-left-visible'].includes(action)) return { success: false };
+      const current = ((await browser.storage.session.get('consentStats')).consentStats as Record<string, Record<string, number>> | undefined) ?? {};
+      current[adapter] = { ...(current[adapter] ?? {}), [action]: ((current[adapter] ?? {})[action] ?? 0) + 1 };
+      await browser.storage.session.set({ consentStats: current });
+      logger.info(`[Consent] ${adapter}: ${action}`);
+      return { success: true };
+    }
+
+    case 'GET_CONSENT_STATUS': {
+      const level = effectiveLevels(policyStateOf(activeSettings)).consent;
+      const stats = ((await browser.storage.session.get('consentStats')).consentStats as Record<string, Record<string, number>> | undefined) ?? {};
+      return {
+        success: true, setting: activeSettings.consentMode, level, mode: effectiveConsentMode(activeSettings.consentMode, level), stats,
+        adapters: ADAPTERS.map((a) => ({ id: a.id, name: a.name, family: a.family }))
+      };
+    }
+
+    case 'SET_CONSENT_MODE': {
+      const normalized = normalizeSettings({ ...activeSettings, consentMode: message.mode as ConsentModeSetting }, activeSettings);
+      if (normalized.consentMode !== message.mode) return { success: false, error: 'Unbekannter Modus' };
+      activeSettings = normalized;
+      await browser.storage.local.set({ consentMode: normalized.consentMode });
+      return { success: true, consentMode: normalized.consentMode };
     }
 
     case 'GET_STORAGE_STATUS': {

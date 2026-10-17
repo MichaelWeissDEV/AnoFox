@@ -9,7 +9,7 @@ import { MODULE_INFO, PROFILE_INFO, LEVEL_LABEL } from '../../core/capabilities/
 import type { AnoFoxSettings } from '../../core/settings/settings.ts';
 import { sanitizeDomainList } from '../../core/domain-utils/domains.ts';
 
-const RULE_MODULES: ModuleId[] = ['scripts', 'inline', 'network'];
+const RULE_MODULES: ModuleId[] = ['scripts', 'inline', 'network', 'adblock', 'consent'];
 const DURATION_LABEL: Record<Exclude<Duration, 'once' | 'tab'>, string> = {
   session: 'Bis Browserende', permanent: 'Dauerhaft'
 };
@@ -105,6 +105,7 @@ export function initPolicyPanel(
     root.append(table);
     await renderNative(root);
     await renderStorage(root);
+    await renderConsent(root);
 
     // Rules
     root.append(el('h3', 'policy-h', 'Regeln für Skripte und Netzwerk'));
@@ -160,6 +161,34 @@ export function initPolicyPanel(
     await renderLists(root);
     root.append(el('p', 'policy-note',
       'Hinweis: Website-Regeln für Skripte und Netzwerk greifen auf die Seite, die die Anfrage auslöst (Initiator). Regeln für Inline-Skripte gelten für die Dokument-Domain (ohne Ziel, nur Sitzung/dauerhaft) und wirken erst nach dem Neuladen der Seite.'));
+  }
+
+  async function renderConsent(into: HTMLElement): Promise<void> {
+    const res = await browser.runtime.sendMessage({ type: 'GET_CONSENT_STATUS' }).catch(() => null);
+    if (!res?.success) return;
+    const MODE_LABEL: Record<string, string> = { auto: 'Automatisch (folgt der Stufe des Moduls)', manual: 'Manuell (AnoFox fasst Banner nicht an)', reject: 'Ablehnen (nur Notwendige zulassen)', hide: 'Nur ausblenden (kein Klick, nur wenn die Seite nicht blockiert wird)' };
+    into.append(el('h3', 'policy-h', 'Cookie-Banner (Consent-Manager)'));
+    into.append(el('p', 'policy-note',
+      `Aktiver Modus: ${res.mode}. AnoFox erteilt niemals Zustimmung: Es klickt nur eindeutige Ablehnen-/„Nur notwendige“-Schaltflächen und weigert sich, ` +
+      'eine Schaltfläche zu klicken, die nach Zustimmung klingt. Unbekannte Dialoge werden nur behandelt, wenn sie „Akzeptieren“ und „Ablehnen“ anbieten. ' +
+      'Die Adapter sind mit nachgebauten Dialogen geprüft, nicht gegen die Live-Skripte der Anbieter. Banner in fremden iFrames werden nicht erreicht. ' +
+      'Pro Website abschaltbar über eine Regel (Modul „Cookie-Banner“, Erlauben) oder im Popup.'));
+    const sel = el('select'); sel.setAttribute('aria-label', 'Modus des Consent-Managers');
+    (['auto', 'manual', 'reject', 'hide'] as const).forEach((m) => { const o = el('option', undefined, MODE_LABEL[m]); o.value = m; sel.append(o); });
+    sel.value = res.setting;
+    sel.addEventListener('change', async () => { if (await send({ type: 'SET_CONSENT_MODE', mode: sel.value })) { toast('Modus gespeichert'); await render(); } });
+    into.append(sel);
+    const list = el('div', 'policy-rules');
+    for (const a of res.adapters as Array<{ id: string; name: string; family: string }>) {
+      const row = el('div', 'policy-rule');
+      const st = (res.stats as Record<string, Record<string, number>>)[a.id] ?? {};
+      row.append(el('span', 'policy-rule-text', `${a.name} · ${a.family}`));
+      row.append(el('span', 'chip', 'mit Testdialogen geprüft'));
+      const counts = Object.entries(st).map(([k, v]) => `${k}: ${v}`).join(', ');
+      if (counts) row.append(el('span', 'chip ok', counts + ' (diese Sitzung)'));
+      list.append(row);
+    }
+    into.append(list);
   }
 
   async function renderStorage(into: HTMLElement): Promise<void> {

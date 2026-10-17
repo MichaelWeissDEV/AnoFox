@@ -65,3 +65,10 @@ test('site policies and grace are validated; unknown values never become persist
   assert.deepEqual(normalizeSettings({ sitePolicies: 'nope' }).sitePolicies, {});
   assert.equal(normalizeSettings({}).storageGraceMs, 60_000);
 });
+
+test('consentMode accepts only known modes and defaults to auto', async () => {
+  const { normalizeSettings, defaultSettings } = await import('../src/core/settings/settings.ts');
+  assert.equal(defaultSettings().consentMode, 'auto');
+  for (const m of ['auto', 'manual', 'reject', 'hide']) assert.equal(normalizeSettings({ consentMode: m }).consentMode, m);
+  for (const bad of ['accept', 'accept-all', '', 5, null, {}]) assert.equal(normalizeSettings({ consentMode: bad }).consentMode, 'auto');
+});

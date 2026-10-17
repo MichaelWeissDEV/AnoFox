@@ -24,7 +24,7 @@ export const MODULE_INFO: Record<ModuleId, ModuleInfo> = {
   fingerprint: { label: 'Fingerprinting-Schutz', description: 'Native Firefox-Schutzfunktionen (browserweit): resistFingerprinting, WebRTC, Referer u. a.', enforced: true, note: 'Nur native Firefox-Einstellungen über browser.privacy (browserweit, nie pro Website). Eigene Maßnahmen für Canvas/WebGL/Audio sind noch nicht implementiert.' },
   cookies: { label: 'Cookies', description: 'Cookies nach Website-Richtlinie (Persistent/Session/Ephemeral) bereinigen.', enforced: true, note: 'Bereinigung über die cookies-API inkl. partitionierter Cookies, beim Schließen des letzten Tabs und beim Browserstart (Best Effort, kein Löschen beim Beenden garantiert). Strict: Standard „Session“, Lockdown: „Ephemeral“, Balanced: nichts löschen.' },
   storage: { label: 'Website-Speicher', description: 'localStorage, IndexedDB und Service Worker nach Website-Richtlinie bereinigen.', enforced: true, note: 'Per browsingData nach Hostname. Nicht möglich: CacheStorage, Drittanbieter-Partitionen unter einer Website, Daten auf Nicht-Standard-Ports; Service Worker nur wenn die Website in keinem Container offen ist.' },
-  consent: { label: 'Cookie-Banner', description: 'Einwilligungsdialoge behandeln.', enforced: false, note: 'Noch nicht implementiert (Phase 7).' }
+  consent: { label: 'Cookie-Banner', description: 'Einwilligungsdialoge ablehnen oder ausblenden (nie zustimmen).', enforced: true, note: 'Adapter für OneTrust, Cookiebot, Usercentrics, Klaro, Didomi, Quantcast und einen generischen Erkenner; nur mit Fixtures geprüft, nicht gegen die Live-Skripte der Anbieter. Nur Hauptdokument, keine Banner in fremden iFrames.' },
 };
 
 export const PROFILE_INFO: Record<ProfileId, { label: string; description: string }> = {

@@ -35,6 +35,7 @@ const allowScriptsBtn = document.querySelector<HTMLButtonElement>('#btn-allow-sc
 const pauseAdblockBtn = document.querySelector<HTMLButtonElement>('#btn-pause-adblock')!;
 const sitePolicySelect = document.querySelector<HTMLSelectElement>('#site-policy-select')!;
 const sitePolicyDesc = document.querySelector<HTMLElement>('#site-policy-desc')!;
+const pauseConsentBtn = document.querySelector<HTMLButtonElement>('#btn-pause-consent')!;
 const siteRulesEl = document.querySelector<HTMLElement>('#site-rules')!;
 
 const statusEl = document.querySelector<HTMLParagraphElement>('#status')!;
@@ -98,15 +99,18 @@ function updatePolicyUI(): void {
   profileDesc.textContent = PROFILE_INFO[currentSettings.profile].description;
   allowScriptsBtn.disabled = !currentTabDomain;
   pauseAdblockBtn.disabled = !currentTabDomain;
+  pauseConsentBtn.disabled = !currentTabDomain;
   siteRulesEl.replaceChildren();
   if (!currentTabDomain) return;
   const domain = currentTabDomain;
   for (const rule of currentSettings.rules) {
-    if ((rule.module !== 'scripts' && rule.module !== 'adblock') || rule.scope.kind !== 'site' || !hostMatches(domain, rule.scope.site)) continue;
+    if ((rule.module !== 'scripts' && rule.module !== 'adblock' && rule.module !== 'consent') || rule.scope.kind !== 'site' || !hostMatches(domain, rule.scope.site)) continue;
     const row = document.createElement('div');
     const text = document.createElement('span');
     const dur = rule.duration === 'permanent' ? 'dauerhaft' : rule.duration === 'session' ? 'bis Browserende' : 'bis Tab zu';
-    text.textContent = rule.module === 'adblock'
+    text.textContent = rule.module === 'consent'
+      ? `Banner-Automatik aus (${dur})`
+      : rule.module === 'adblock'
       ? `Werbeblocker pausiert (${dur})`
       : `${rule.effect === 'allow' ? 'Skripte erlaubt' : 'Skripte blockiert'} (${dur})`;
     const del = document.createElement('button');
@@ -369,6 +373,23 @@ sitePolicySelect.addEventListener('change', async () => {
   const res = await browser.runtime.sendMessage({ type: 'SET_SITE_POLICY', site: currentTabDomain, policy });
   showStatus(res?.success ? (policy ? `Richtlinie „${policy}“ gespeichert` : 'Standardrichtlinie') : (res?.error ?? 'Fehler'), !res?.success);
   await updateStoragePolicyUI();
+});
+
+pauseConsentBtn.addEventListener('click', async () => {
+  if (!currentTabDomain) return;
+  const duration = siteRuleDuration.value;
+  if (duration === 'tab' && currentTabId === null) { showStatus('Kein Tab erkannt', true); return; }
+  pauseConsentBtn.disabled = true;
+  try {
+    const res = await browser.runtime.sendMessage({
+      type: 'ADD_USER_RULE',
+      rule: { module: 'consent', effect: 'allow', duration, scope: { kind: 'site', site: currentTabDomain }, ...(duration === 'tab' ? { tabId: currentTabId } : {}) }
+    });
+    showStatus(res?.success ? 'Banner-Automatik für diese Website aus – Seite neu laden' : (res?.error ?? 'Fehler'), !res?.success);
+    await reloadSettings();
+  } finally {
+    pauseConsentBtn.disabled = !currentTabDomain;
+  }
 });
 
 // Theme switcher button

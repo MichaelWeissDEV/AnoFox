@@ -9,6 +9,8 @@ import { DEFAULT_PROVIDERS } from '../../embed-guard.ts';
 import type { SocialEmbedProviders } from '../../embed-guard.ts';
 import type { LogSeverity } from '../../logger.ts';
 import type { NativeOverrides, NativeOverride } from '../../protection/fingerprint/native.ts';
+import { CONSENT_MODE_SETTINGS } from '../../protection/consent/mode.ts';
+import type { ConsentModeSetting } from '../../protection/consent/mode.ts';
 import { sanitizeSitePolicies, clampGrace, DEFAULT_GRACE_MS } from '../../protection/storage/model.ts';
 import type { SitePolicies } from '../../protection/storage/model.ts';
 import { MODULE_ORDER, PROFILE_LEVELS } from '../policy-engine/policy.ts';
@@ -42,6 +44,8 @@ export interface AnoFoxSettings {
   /** Cookie Vault: policy per host or registrable domain (most specific entry wins). */
   sitePolicies: SitePolicies;
   storageGraceMs: number;
+  /** Cookie-banner manager: follow the module level (auto) or force manual / reject / hide. */
+  consentMode: ConsentModeSetting;
 }
 
 export const DEFAULT_SETTINGS: AnoFoxSettings = {
@@ -60,7 +64,8 @@ export const DEFAULT_SETTINGS: AnoFoxSettings = {
   rules: [],
   nativeOverrides: {},
   sitePolicies: {},
-  storageGraceMs: DEFAULT_GRACE_MS
+  storageGraceMs: DEFAULT_GRACE_MS,
+  consentMode: 'auto'
 };
 
 const SEVERITIES: readonly string[] = ['DEBUG', 'INFO', 'WARN', 'ERROR', 'OFF'];
@@ -68,7 +73,7 @@ const THEMES: readonly string[] = ['system', 'dark', 'light'];
 const MAX_DOMAINS = 2000;
 
 export function defaultSettings(): AnoFoxSettings {
-  return { ...DEFAULT_SETTINGS, exceptions: [], socialEmbedExceptions: [], socialEmbedProviders: { ...DEFAULT_PROVIDERS }, customLevels: { ...PROFILE_LEVELS.balanced }, rules: [], nativeOverrides: {}, sitePolicies: {}, storageGraceMs: DEFAULT_GRACE_MS };
+  return { ...DEFAULT_SETTINGS, exceptions: [], socialEmbedExceptions: [], socialEmbedProviders: { ...DEFAULT_PROVIDERS }, customLevels: { ...PROFILE_LEVELS.balanced }, rules: [], nativeOverrides: {}, sitePolicies: {}, storageGraceMs: DEFAULT_GRACE_MS, consentMode: 'auto' };
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -178,7 +183,8 @@ export function normalizeSettings(raw: unknown, base: AnoFoxSettings = defaultSe
     rules: normalizeRules(raw.rules, base.rules),
     nativeOverrides: normalizeNativeOverrides(raw.nativeOverrides, base.nativeOverrides),
     sitePolicies: raw.sitePolicies === undefined ? base.sitePolicies : sanitizeSitePolicies(raw.sitePolicies),
-    storageGraceMs: raw.storageGraceMs === undefined ? base.storageGraceMs : clampGrace(raw.storageGraceMs)
+    storageGraceMs: raw.storageGraceMs === undefined ? base.storageGraceMs : clampGrace(raw.storageGraceMs),
+    consentMode: typeof raw.consentMode === 'string' && (CONSENT_MODE_SETTINGS as readonly string[]).includes(raw.consentMode) ? (raw.consentMode as ConsentModeSetting) : base.consentMode
   };
 }
 
