@@ -25,7 +25,10 @@ ping('driver loaded');
 let filter: RegExp | null = null; // optional E2E_FILTER=regex: only run matching checks (fast iteration)
 async function check(name: string, fn: () => Promise<void> | void): Promise<void> {
   if (filter && !filter.test(name)) return;
-  try { await fn(); results.push({ name, ok: true }); await ping('ok ' + name); }
+  try {
+    await Promise.race([Promise.resolve().then(fn), new Promise((_, rej) => setTimeout(() => rej(new Error('check timed out after 90s')), 90_000))]);
+    results.push({ name, ok: true }); await ping('ok ' + name);
+  }
   catch (e) { results.push({ name, ok: false, detail: String((e as Error)?.message ?? e).slice(0, 500) }); await ping('FAIL ' + name + ' :: ' + String((e as Error)?.message ?? e).slice(0, 200)); }
 }
 function assert(cond: unknown, msg: string): asserts cond { if (!cond) throw new Error(msg); }
@@ -293,7 +296,7 @@ async function main(): Promise<void> {
 
 
   // ---------------------------------------------------------------- Cookie-banner manager (fixtures, not vendor scripts)
-  const cmp = async (path: string, host = A, waitMs = 7000, expectOutcome = true): Promise<{ consent?: string; other?: string; clicked?: string; display: string | null }> =>
+  const cmp = async (path: string, host = A, waitMs = 7000, expectOutcome = true, settleMs = 0): Promise<{ consent?: string; other?: string; clicked?: string; display: string | null }> =>
     withTab(`http://${host}${path}`, async (tab) => {
       const end = Date.now() + waitMs;
       while (Date.now() < end) {
@@ -301,6 +304,7 @@ async function main(): Promise<void> {
         if (expectOutcome && done) break;
         await sleep(250);
       }
+      if (settleMs) await sleep(settleMs); // the content script reports AFTER the dialog is gone; closing the tab earlier would drop the report
       return run(tab.id!, () => {
         const root = document.querySelector('[data-cmp-root], #usercentrics-root') as HTMLElement | null;
         const target = (root && (root.querySelector('#onetrust-banner-sdk, #didomi-popup, .cookie-notice, .qc-cmp2-summary-buttons') as HTMLElement | null)) || root;
@@ -376,7 +380,7 @@ async function main(): Promise<void> {
   });
   await check('consent: status reports honest counters and rejects unknown modes', async () => {
     await reset();
-    await cmp(fx('klaro'));
+    await cmp(fx('klaro'), A, 7000, true, 1500);
     const st = await send({ type: 'GET_CONSENT_STATUS' });
     assert(st.success && st.mode === 'reject' && st.stats.klaro?.rejected >= 1, 'stats ' + JSON.stringify(st.stats));
     assert(st.adapters.some((a: { id: string }) => a.id === 'usercentrics'), 'adapter list');
@@ -499,6 +503,217 @@ async function main(): Promise<void> {
     const { tab, finalUrl } = await nav(`http://${M}/after-reset`);
     assert(!isWarning(finalUrl), 'rules must be gone after reset: ' + finalUrl);
     await browser.tabs.remove(tab.id!);
+  });
+
+
+  // ---------------------------------------------------------------- UI: landmarks, names, keyboard, responsive, contrast (real rendering)
+  const frame = async (path: string, width: number): Promise<{ doc: Document; win: Window; el: HTMLIFrameElement }> => {
+    const f = document.createElement('iframe');
+    f.src = browser.runtime.getURL(path);
+    f.style.cssText = `width:${width}px;height:900px;border:0;display:block`;
+    document.body.appendChild(f);
+    await new Promise<void>((r) => { f.addEventListener('load', () => r(), { once: true }); setTimeout(r, 6000); });
+    await sleep(900);
+    return { doc: f.contentDocument!, win: f.contentWindow!, el: f };
+  };
+  const visible = (e: Element) => e.getClientRects().length > 0 && !e.closest('[hidden]');
+  const nameOf = (doc: Document, e: Element): string => {
+    const aria = e.getAttribute('aria-label'); if (aria) return aria.trim();
+    const lb = e.getAttribute('aria-labelledby');
+    if (lb) return lb.split(' ').map((id) => doc.getElementById(id)?.textContent ?? '').join(' ').trim();
+    if (e.id) { const l = doc.querySelector(`label[for="${e.id}"]`); if (l) return (l.textContent ?? '').trim(); }
+    const wrap = e.closest('label'); if (wrap) return (wrap.textContent ?? '').trim();
+    if (e instanceof HTMLInputElement && ['button', 'submit'].includes(e.type)) return e.value;
+    return ((e.textContent ?? '').trim() || e.getAttribute('title') || '').trim();
+  };
+  const INTERACTIVE = 'button, a[href], select, input:not([type="hidden"]), textarea, [role="button"], [role="switch"], summary';
+  const rgb = (c: string): [number, number, number, number] => { const m = c.match(/rgba?\(([^)]+)\)/)!; const p = m[1].split(/[ ,/]+/).filter(Boolean).map(Number); return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1]; };
+  const lum = ([r, g, b]: number[]) => { const f = (v: number) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+  const ratio = (a: number[], b: number[]) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+  const bgOf = (win: Window, e: Element): [number, number, number] => {
+    const layers: number[][] = [];
+    for (let n: Element | null = e; n; n = n.parentElement) { const c = rgb(win.getComputedStyle(n).backgroundColor); if (c[3] > 0) layers.push(c); if (c[3] >= 0.999) break; }
+    let base: number[] = [0, 0, 0];
+    for (const l of layers.reverse()) base = [0, 1, 2].map((i) => l[i] * l[3] + base[i] * (1 - l[3]));
+    return base as [number, number, number];
+  };
+  const lowContrast = (win: Window, doc: Document): string[] => {
+    const bad: string[] = [];
+    for (const e of Array.from(doc.body.querySelectorAll('*'))) {
+      if (!visible(e) || !Array.from(e.childNodes).some((n) => n.nodeType === 3 && (n.textContent ?? '').trim())) continue;
+      if (e instanceof HTMLElement && (e.closest('select') || e.tagName === 'OPTION')) continue;
+      const cs = win.getComputedStyle(e);
+      if (cs.visibility === 'hidden' || Number(cs.opacity) === 0) continue;
+      const fg = rgb(cs.color); const bg = bgOf(win, e);
+      const fgBlend = [0, 1, 2].map((i) => fg[i] * fg[3] + bg[i] * (1 - fg[3]));
+      const px = parseFloat(cs.fontSize); const large = px >= 24 || (px >= 18.66 && Number(cs.fontWeight) >= 700);
+      const r = ratio(fgBlend, bg);
+      if (r < (large ? 3 : 4.5)) bad.push(`${e.tagName.toLowerCase()}.${(e.className || '').toString().split(' ')[0]} "${(e.textContent ?? '').trim().slice(0, 30)}" ${r.toFixed(2)}`);
+    }
+    return bad;
+  };
+  const TABS = ['tab-overview', 'tab-policy', 'tab-rules', 'tab-cleaner', 'tab-embeds', 'tab-lists', 'tab-threat', 'tab-consent', 'tab-storage', 'tab-fingerprint', 'tab-stats', 'tab-terminal', 'tab-backup'];
+  await reset();
+  await check('ui options: one banner/nav/main landmark, skip link first and working, page language set, single h1', async () => {
+    const { doc, el } = await frame('options.html', 1200);
+    eq([doc.documentElement.lang, doc.querySelectorAll('main').length, doc.querySelectorAll('nav[aria-label]').length, doc.querySelectorAll('h1').length], ['de', 1, 1, 1], 'landmarks');
+    const first = doc.querySelector(INTERACTIVE) as HTMLAnchorElement;
+    assert(first.classList.contains('skip-link') && first.getAttribute('href') === '#main', 'skip link must be the first focusable element');
+    assert(doc.getElementById('main')!.tabIndex === -1, 'main must be programmatically focusable');
+    el.remove();
+  });
+  await check('ui options: navigation sets aria-current, shows exactly one pane, updates title and hash; panes are labelled regions', async () => {
+    const { doc, el } = await frame('options.html', 1200);
+    for (const id of TABS) {
+      (doc.querySelector(`.nav-link[data-tab="${id}"]`) as HTMLElement).click();
+      await sleep(150);
+      const current = Array.from(doc.querySelectorAll('.nav-link[aria-current="page"]')).map((b) => (b as HTMLElement).dataset.tab);
+      eq(current, [id], 'aria-current');
+      eq(Array.from(doc.querySelectorAll('.tab-pane')).filter((p) => !(p as HTMLElement).hidden).map((p) => p.id), [id], 'visible panes');
+      const pane = doc.getElementById(id)!;
+      assert(pane.getAttribute('role') === 'region' && !!pane.getAttribute('aria-label'), `${id} needs role=region and a name`);
+      assert(doc.title.startsWith('AnoFox – ') && doc.location.hash === `#${id}`, `title/hash for ${id}: ${doc.title} ${doc.location.hash}`);
+    }
+    el.remove();
+  });
+  await check('ui options: every visible control in every pane has an accessible name', async () => {
+    const { doc, el } = await frame('options.html', 1200);
+    const missing: string[] = [];
+    for (const id of TABS) {
+      (doc.querySelector(`.nav-link[data-tab="${id}"]`) as HTMLElement).click();
+      await sleep(900);
+      for (const c of Array.from(doc.querySelectorAll(INTERACTIVE))) if (visible(c) && !nameOf(doc, c)) missing.push(`${id}: <${c.tagName.toLowerCase()} ${(c as HTMLElement).id || c.className}>`);
+    }
+    eq(missing, [], 'controls without a name');
+    el.remove();
+  });
+  await check('ui options: heading levels never skip (h1 > h2 > h3) inside each pane', async () => {
+    const { doc, el } = await frame('options.html', 1200);
+    const problems: string[] = [];
+    for (const id of TABS) {
+      (doc.querySelector(`.nav-link[data-tab="${id}"]`) as HTMLElement).click();
+      await sleep(700);
+      let prev = 2;
+      for (const hd of Array.from(doc.getElementById(id)!.querySelectorAll('h1,h2,h3,h4')).filter(visible)) {
+        const lvl = Number(hd.tagName[1]);
+        if (lvl > prev + 1) problems.push(`${id}: h${prev} -> h${lvl} "${(hd.textContent ?? '').slice(0, 30)}"`);
+        prev = lvl;
+      }
+    }
+    eq(problems, [], 'skipped heading levels');
+    el.remove();
+  });
+  for (const theme of ['dark', 'light'] as const) {
+    await check(`ui options: text contrast meets WCAG AA in the real rendering (${theme} theme, all panes)`, async () => {
+      const { doc, win, el } = await frame('options.html', 1200);
+      doc.documentElement.setAttribute('data-theme', theme);
+      const bad: string[] = [];
+      for (const id of TABS) {
+        (doc.querySelector(`.nav-link[data-tab="${id}"]`) as HTMLElement).click();
+        await sleep(800);
+        bad.push(...lowContrast(win, doc).map((b) => `${id}: ${b}`));
+      }
+      eq(bad.slice(0, 12), [], `${bad.length} low-contrast text elements`);
+      el.remove();
+    });
+  }
+  await check('ui options: no horizontal scrolling at phone width (360px) and the sidebar collapses', async () => {
+    const { doc, win, el } = await frame('options.html', 360);
+    const over: string[] = [];
+    for (const id of ['tab-overview', 'tab-policy', 'tab-rules', 'tab-storage', 'tab-threat', 'tab-consent']) {
+      (doc.querySelector(`.nav-link[data-tab="${id}"]`) as HTMLElement).click();
+      await sleep(800);
+      if (doc.documentElement.scrollWidth > 361) {
+        const wide = Array.from(doc.getElementById(id)!.querySelectorAll('*')).filter((n) => n.getBoundingClientRect().right > 362)
+          .slice(0, 4).map((n) => `${n.tagName.toLowerCase()}.${(n.className || '').toString().split(' ')[0]}(${Math.round(n.getBoundingClientRect().right)})`);
+        over.push(`${id}: ${doc.documentElement.scrollWidth}px by ${wide.join(', ')}`);
+      }
+    }
+    eq(over, [], 'horizontal overflow');
+    assert(win.getComputedStyle(doc.querySelector('.layout')!).gridTemplateColumns.split(' ').length === 1, 'single column layout');
+    el.remove();
+  });
+  await check('ui popup: controls are named, switches are real focusable checkboxes with role=switch, status is a live region', async () => {
+    const { doc, win, el } = await frame('popup.html', 360);
+    const missing = Array.from(doc.querySelectorAll(INTERACTIVE)).filter((c) => !nameOf(doc, c)).map((c) => (c as HTMLElement).id || c.tagName);
+    eq(missing, [], 'popup controls without a name');
+    const sw = Array.from(doc.querySelectorAll('input[role="switch"]')) as HTMLInputElement[];
+    assert(sw.length === 4 && sw.every((i) => i.type === 'checkbox' && i.tabIndex >= 0), 'four reachable switches');
+    assert(doc.getElementById('status')!.getAttribute('aria-live') === 'polite', 'live region');
+    assert(doc.querySelector('main') && doc.querySelector('h1'), 'landmarks');
+    assert(doc.documentElement.scrollWidth <= 361, 'no horizontal overflow');
+    for (const theme of ['dark', 'light']) {
+      doc.documentElement.setAttribute('data-theme', theme);
+      await sleep(200);
+      eq(lowContrast(win, doc).slice(0, 8), [], `popup contrast ${theme}`);
+    }
+    el.remove();
+  });
+  await check('ui warning page: landmarks, named buttons, correct heading, and an invalid call disables "open anyway"', async () => {
+    const ok = await frame('blocked.html?l=phishing-filter&u=http://login.example.test/x', 480);
+    eq([ok.doc.querySelectorAll('main').length, ok.doc.querySelectorAll('h1').length, ok.doc.documentElement.lang], [1, 1, 'de'], 'landmarks');
+    assert(ok.doc.getElementById('title')!.textContent === 'Verdacht auf Phishing' && ok.doc.getElementById('host')!.textContent === 'login.example.test', 'content');
+    eq(Array.from(ok.doc.querySelectorAll(INTERACTIVE)).filter((c) => !nameOf(ok.doc, c)).length, 0, 'named controls');
+    eq(lowContrast(ok.win, ok.doc).slice(0, 6), [], 'warning page contrast');
+    ok.el.remove();
+    const bad = await frame('blocked.html?l=x&u=javascript:alert(1)', 480);
+    assert((bad.doc.getElementById('proceed') as HTMLButtonElement).disabled, 'invalid call must not allow bypass');
+    bad.el.remove();
+  });
+
+  await check('ui overview: one card per module with truthful status, honest hints, and "Konfigurieren" opens the right pane', async () => {
+    await reset();
+    await send({ type: 'SET_PROFILE', profile: 'strict' });
+    const { doc, el } = await frame('options.html#tab-overview', 1200);
+    await sleep(500);
+    const cards = Array.from(doc.querySelectorAll('#mount-overview .ui-grid')[0].querySelectorAll('.ui-card'));
+    eq(cards.length, 12, 'one card per module');
+    const text = (n: Element) => n.textContent ?? '';
+    const find = (label: string) => cards.find((c) => text(c.querySelector('h3')!) === label)!;
+    assert(text(find('Fingerprinting-Schutz')).includes('Strict') && text(find('Cookie-Banner')).includes('experimentell'), 'levels and experimental flags');
+    assert(text(doc.getElementById('mount-overview')!).includes('Aktives Profil: Strict'), 'profile');
+    assert(text(doc.getElementById('mount-overview')!).includes('Phishing- und Malware-Listen sind nicht aktiviert'), 'honest hint: no list enabled');
+    (Array.from(find('Phishing').querySelectorAll('button')).find((b) => b.textContent === 'Konfigurieren') as HTMLElement).click();
+    await sleep(400);
+    eq((doc.querySelector('.nav-link[aria-current="page"]') as HTMLElement).dataset.tab, 'tab-threat', 'navigated to the threat pane');
+    el.remove();
+  });
+  await check('ui options: picking a profile (toggles resistFingerprinting) keeps the page responsive and keyboard focus on the same button', async () => {
+    // Run in a real tab: toggling resistFingerprinting while the page sits in an iframe of this driver page freezes headless Firefox
+    // (a test-environment quirk, not reproducible with the page in its own tab).
+    await reset();
+    const tab = await openTab(browser.runtime.getURL('options.html#tab-policy'));
+    await sleep(1000);
+    const view = (browser as any).extension.getViews({ type: 'tab' }).find((v: Window) => v.location.href.includes('options.html'));
+    assert(view, 'options view');
+    const strict = Array.from(view.document.querySelectorAll('#mount-profiles .policy-profile')).find((b: any) => (b.textContent ?? '').startsWith('Strict')) as HTMLButtonElement;
+    strict.focus();
+    strict.click();
+    await sleep(2500);
+    const active = view.document.activeElement as HTMLElement;
+    assert((active.textContent ?? '').startsWith('Strict') && active.getAttribute('aria-pressed') === 'true',
+      'focus lost after re-render: ' + active.tagName + ' ' + (active.textContent ?? '').slice(0, 20));
+    await browser.tabs.remove(tab.id!);
+    await send({ type: 'SET_PROFILE', profile: 'balanced' });
+  });
+  await check('ui options: a select keeps keyboard focus after its change re-renders the section (consent mode)', async () => {
+    await reset();
+    const { doc, el } = await frame('options.html#tab-consent', 1200);
+    await sleep(600);
+    const sel = doc.querySelector('select[aria-label="Modus des Consent-Managers"]') as HTMLSelectElement;
+    sel.focus();
+    sel.value = 'manual';
+    sel.dispatchEvent(new Event('change'));
+    await sleep(1500);
+    const now = doc.activeElement as HTMLSelectElement;
+    assert(now.tagName === 'SELECT' && now.getAttribute('aria-label') === 'Modus des Consent-Managers' && now.value === 'manual', 'focus/value after re-render: ' + now.tagName + ' ' + now.value);
+    el.remove();
+  });
+  await check('ui stylesheet: visible focus ring (>=3px), reduced-motion and forced-colors support, minimum target size', async () => {
+    const css = await (await fetch(browser.runtime.getURL('ui.css'))).text();
+    assert(/:focus-visible\s*\{[^}]*outline:\s*3px/.test(css), 'focus ring');
+    assert(css.includes('prefers-reduced-motion: reduce') && css.includes('forced-colors: active'), 'media preferences');
+    assert(/min-height:\s*36px/.test(css), 'target size');
   });
 
   // ---------------------------------------------------------------- native Firefox settings
