@@ -40,5 +40,10 @@ if (e2e) {
   await writeFile(`${outdir}/e2e-boot.js`, "(async () => { const f = await browser.storage.session.get('e2eBooted'); if (f.e2eBooted) return; await browser.storage.session.set({ e2eBooted: true }); setTimeout(() => browser.tabs.create({ url: browser.runtime.getURL('e2e-driver.html') }), 1500); })();\n");
   const manifest = JSON.parse(await readFile(`${outdir}/manifest.json`, 'utf8'));
   manifest.background.scripts = [...manifest.background.scripts, 'e2e-boot.js'];
+  // E2E_DROP_PERMS=a,b removes permissions in the test build only (used to prove which ones the extension really needs)
+  const drop = (process.env.E2E_DROP_PERMS ?? '').split(',').filter(Boolean);
+  manifest.permissions = manifest.permissions.filter((p) => !drop.includes(p));
+  // optional permissions cannot be granted without a user prompt: the e2e build treats them as granted, unless E2E_KEEP_OPTIONAL=1
+  if (!process.env.E2E_KEEP_OPTIONAL) { manifest.permissions = [...manifest.permissions, ...(manifest.optional_permissions ?? [])]; delete manifest.optional_permissions; }
   await writeFile(`${outdir}/manifest.json`, JSON.stringify(manifest, null, 2));
 }

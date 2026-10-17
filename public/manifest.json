@@ -6,8 +6,6 @@
   "permissions": [
     "storage",
     "declarativeNetRequest",
-    "declarativeNetRequestFeedback",
-    "webRequest",
     "alarms",
     "privacy",
     "cookies",
@@ -26,7 +24,8 @@
   "content_scripts": [
     {
       "matches": [
-        "<all_urls>"
+        "http://*/*",
+        "https://*/*"
       ],
       "js": [
         "content-embed-guard.js"
@@ -92,5 +91,8 @@
         "<all_urls>"
       ]
     }
+  ],
+  "optional_permissions": [
+    "webRequest"
   ]
 }

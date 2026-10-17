@@ -11,6 +11,7 @@ import {
 } from './embed-guard.ts';
 import { KNOWN_TRACKING_PARAMS } from './url-cleaner.ts';
 import { sanitizeDomainList } from './core/domain-utils/domains.ts';
+import { requestCleanedUrlStats } from './ui/permissions.ts';
 import { initPolicyPanel } from './ui/settings/policy-panel.ts';
 import { defaultSettings, exportSettings } from './core/settings/settings.ts';
 import type { LogSeverity, InternalLogEntry } from './logger.ts';
@@ -586,10 +587,12 @@ async function fetchAndRenderStats(): Promise<void> {
 // Stats event listeners
 statsMasterToggle.addEventListener('change', async () => {
   const statsEnabled = statsMasterToggle.checked;
+  // optional permission for counting cleaned URLs: request it first, directly from this click
+  const counted = statsEnabled ? await requestCleanedUrlStats() : false;
   currentSettings.statsEnabled = statsEnabled;
   await saveSettings({ statsEnabled });
   await fetchAndRenderStats();
-  showToast(statsEnabled ? 'Temporäre Statistik & Internes Log aktiviert' : 'Statistikerfassung deaktiviert & Speicher geleert');
+  showToast(statsEnabled ? (counted ? 'Temporäre Statistik & Internes Log aktiviert' : 'Statistik aktiv – ohne die optionale Berechtigung werden bereinigte URLs nicht gezählt') : 'Statistikerfassung deaktiviert & Speicher geleert');
 });
 
 insightsSearchInput.addEventListener('input', () => {

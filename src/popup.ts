@@ -9,6 +9,7 @@ import type { AnoFoxSettings, ThemePreference } from './background.ts';
 import { PROFILE_INFO } from './core/capabilities/modules.ts';
 import { hostMatches } from './core/domain-utils/domains.ts';
 import { effectiveLevels } from './core/policy-engine/policy.ts';
+import { hasCleanedUrlStats, requestCleanedUrlStats } from './ui/permissions.ts';
 
 let currentTabId: number | null = null;
 
@@ -229,7 +230,7 @@ async function init(): Promise<void> {
         const statsRes = await browser.runtime.sendMessage({ type: 'GET_STATS_AND_LOGS' });
         if (statsRes?.success && statsRes.statistics) {
           const total = statsRes.statistics.totalBlocked;
-          statsSummaryDesc.textContent = `${total} blockiert (flüchtig im RAM)`;
+          statsSummaryDesc.textContent = (await hasCleanedUrlStats()) ? `${total} blockiert (flüchtig im RAM)` : `${total} blockiert • bereinigte URLs werden ohne Berechtigung nicht gezählt`;
         } else {
           statsSummaryDesc.textContent = 'Aktiv • Flüchtig im RAM';
         }
@@ -267,10 +268,12 @@ terminalCheckbox.addEventListener('change', async () => {
 
 statsCheckbox.addEventListener('change', async () => {
   const statsEnabled = statsCheckbox.checked;
+  // optional permission (counting cleaned URLs): must be requested first, directly from this click
+  const counted = statsEnabled ? await requestCleanedUrlStats() : false;
   await sendSettingsUpdate({ statsEnabled });
   if (statsEnabled) {
-    statsSummaryDesc.textContent = 'Aktiv • Flüchtig im RAM';
-    showStatus('Temporäre Statistik aktiviert');
+    statsSummaryDesc.textContent = counted ? 'Aktiv • Flüchtig im RAM' : 'Aktiv • bereinigte URLs werden ohne Berechtigung nicht gezählt';
+    showStatus(counted ? 'Temporäre Statistik aktiviert' : 'Statistik aktiv, aber ohne Zählung bereinigter URLs (Berechtigung abgelehnt)');
   } else {
     statsSummaryDesc.textContent = 'Standard: Aus • Keine Datenspeicherung';
     showStatus('Statistikerfassung deaktiviert');

@@ -13,7 +13,6 @@ import {
   replaceListRules,
   listRuleBudget,
   loopGuard,
-  isTrackingRedirectRuleId,
   sanitizeDomainList,
   allowEmbedTemporarily
 } from './dnr-manager.ts';
@@ -336,40 +335,27 @@ function handleCleanedEvent(originalUrl: string, destinationUrl?: string): void 
   }
 }
 
-// 1. Listen for declarativeNetRequest debug feedback (when enabled in Firefox via extensions.dnr.feedback)
-const dnrAny = browser.declarativeNetRequest as unknown as {
-  onRuleMatchedDebug?: {
-    addListener: (cb: (info: { rule: { ruleId: number }; request: { url: string } }) => void) => void;
-  };
+// 1. Count/log cleaned URLs. This needs the OPTIONAL `webRequest` permission (observation only, no blocking): Firefox reports the
+// DNR queryTransform redirect through webRequest.onBeforeRedirect (verified in the end-to-end suite). Without the permission AnoFox
+// works unchanged, it just cannot count cleaned URLs. `declarativeNetRequestFeedback` is not needed and is not requested.
+type RedirectDetails = { url: string; redirectUrl?: string };
+const onRedirect = (details: RedirectDetails): void => {
+  if (details.url && details.redirectUrl && details.url !== details.redirectUrl) {
+    const check = cleanUrlDetailed(details.url, { exceptions: activeSettings.exceptions });
+    if (check.wasCleaned) handleCleanedEvent(details.url, details.redirectUrl);
+  }
 };
 
-if (dnrAny?.onRuleMatchedDebug) {
-  try {
-    dnrAny.onRuleMatchedDebug.addListener((info) => {
-      if (info.rule?.ruleId !== undefined && isTrackingRedirectRuleId(info.rule.ruleId) && info.request?.url) {
-        handleCleanedEvent(info.request.url);
-      }
-    });
-  } catch (err) {
-    logger.debug('onRuleMatchedDebug konnte nicht registriert werden:', err);
-  }
+function setRedirectLogging(on: boolean): void {
+  const ev = browser.webRequest?.onBeforeRedirect;
+  if (!ev) return; // permission not granted: the API does not exist
+  if (on && !ev.hasListener(onRedirect)) ev.addListener(onRedirect, { urls: ['<all_urls>'], types: ['main_frame', 'sub_frame'] });
+  else if (!on && ev.hasListener(onRedirect)) ev.removeListener(onRedirect);
 }
 
-// 2. Listen to webRequest redirects to reliably log DNR and server queryTransform changes in terminal
-if (browser.webRequest?.onBeforeRedirect) {
-  browser.webRequest.onBeforeRedirect.addListener(
-    (details) => {
-      // Check if redirect stripped tracking parameters
-      if (details.url && details.redirectUrl && details.url !== details.redirectUrl) {
-        const check = cleanUrlDetailed(details.url, { exceptions: activeSettings.exceptions });
-        if (check.wasCleaned) {
-          handleCleanedEvent(details.url, details.redirectUrl);
-        }
-      }
-    },
-    { urls: ['<all_urls>'], types: ['main_frame', 'sub_frame'] }
-  );
-}
+setRedirectLogging(true); // no-op until the optional permission exists
+browser.permissions.onAdded.addListener((p) => { if (p.permissions?.includes('webRequest')) setRedirectLogging(true); });
+browser.permissions.onRemoved.addListener((p) => { if (p.permissions?.includes('webRequest')) setRedirectLogging(false); });
 
 // 3. Listen for runtime messages from popup UI, options page, and content scripts
 browser.runtime.onMessage.addListener(async (message, sender) => {
