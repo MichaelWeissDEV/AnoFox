@@ -26,6 +26,8 @@ import { privacyStats } from './stats.ts';
 import { effectiveConsentMode } from './protection/consent/mode.ts';
 import type { ConsentModeSetting } from './protection/consent/mode.ts';
 import { ADAPTERS } from './protection/consent/adapters.ts';
+import { getThreatSource } from './protection/threat/sources.ts';
+import { createThreatService } from './browser/background/threat-service.ts';
 import { createStorageService } from './browser/background/storage-service.ts';
 import { planNative, applyNative } from './protection/fingerprint/native.ts';
 import type { PrivacyApi, NativeStatus } from './protection/fingerprint/native.ts';
@@ -79,6 +81,7 @@ function applyPolicy(): Promise<boolean> {
     const okDynamic = await syncDnrRules(plan.options);
     const okSession = await syncPolicySessionRules(plan.session);
     await syncNative().catch((e) => logger.error('Native Einstellungen fehlgeschlagen:', e));
+    await threatService.sync();
     return okDynamic && okSession;
   };
   const next = policyQueue.then(run, run);
@@ -238,6 +241,19 @@ if (browser.alarms) {
   });
 }
 
+// ---- Phishing / malware protection ------------------------------------------------------------------
+declare const __E2E__: boolean;
+let consentStatsQueue: Promise<unknown> = Promise.resolve();
+const threatService = createThreatService(() => activeSettings);
+const THREAT_ALARM = 'anofox-threat-check';
+if (browser.alarms) {
+  browser.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === THREAT_ALARM) {
+      void ready.then(async () => { await threatService.pruneBypass(); await threatService.refresh(false); }).catch((e) => logger.error('Threat-Listen fehlgeschlagen:', e));
+    }
+  });
+}
+
 const LIST_ALARM = 'anofox-list-check';
 if (browser.alarms) {
   browser.alarms.onAlarm.addListener((alarm) => {
@@ -250,6 +266,7 @@ async function ensureListAlarm(): Promise<void> {
   if (!browser.alarms) return;
   const existing = await browser.alarms.get(LIST_ALARM);
   if (!existing) browser.alarms.create(LIST_ALARM, { delayInMinutes: 5, periodInMinutes: 60 });
+  if (!(await browser.alarms.get(THREAT_ALARM))) browser.alarms.create(THREAT_ALARM, { delayInMinutes: 2, periodInMinutes: 30 });
   if (!(await browser.alarms.get(STORAGE_ALARM))) browser.alarms.create(STORAGE_ALARM, { delayInMinutes: 1, periodInMinutes: 1 });
 }
 
@@ -610,6 +627,31 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
       return { success: true, active: true };
     }
 
+    case 'THREAT_BYPASS': {
+      return threatService.bypass(sender.url, sender.tab?.id, message.duration);
+    }
+
+    case 'GET_THREAT_STATUS': {
+      return { success: true, ...(await threatService.status()) };
+    }
+
+    case 'SET_THREAT_LIST_ENABLED': {
+      const source = getThreatSource(String(message.id));
+      if (!source) return { success: false, error: 'unknown-list' };
+      const summary = await threatService.manager.setEnabled(source.id, Boolean(message.enabled), threatService.levels()[source.kind]);
+      const err = summary.errors[String(message.id)];
+      return { success: !err, summary, error: err };
+    }
+
+    case 'UPDATE_THREATS_NOW': {
+      return { success: true, summary: await threatService.refresh(true) };
+    }
+
+    case 'E2E_APPLY_THREAT_DOMAINS': {
+      if (!__E2E__) return { success: false };
+      return { success: await threatService.e2eApply(String(message.listId), (message.domains as string[]) ?? []) };
+    }
+
     case 'CONSENT_GET_CONFIG': {
       const url = sender.tab?.url;
       let host: string | null = null;
@@ -626,9 +668,13 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
       const adapter = String(message.adapter ?? '');
       const action = String(message.action ?? '');
       if (!ADAPTERS.some((a) => a.id === adapter) || !['rejected', 'hidden', 'failed', 'wall-left-visible'].includes(action)) return { success: false };
-      const current = ((await browser.storage.session.get('consentStats')).consentStats as Record<string, Record<string, number>> | undefined) ?? {};
-      current[adapter] = { ...(current[adapter] ?? {}), [action]: ((current[adapter] ?? {})[action] ?? 0) + 1 };
-      await browser.storage.session.set({ consentStats: current });
+      // read-modify-write must be serialized: reports from several tabs arrive concurrently and would overwrite each other
+      consentStatsQueue = consentStatsQueue.then(async () => {
+        const current = ((await browser.storage.session.get('consentStats')).consentStats as Record<string, Record<string, number>> | undefined) ?? {};
+        current[adapter] = { ...(current[adapter] ?? {}), [action]: ((current[adapter] ?? {})[action] ?? 0) + 1 };
+        await browser.storage.session.set({ consentStats: current });
+      }).catch(() => undefined);
+      await consentStatsQueue;
       logger.info(`[Consent] ${adapter}: ${action}`);
       return { success: true };
     }
@@ -746,6 +792,7 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
 
       // list rules live outside the settings; turn lists off first so no orphaned DNR rules remain
       for (const l of LIST_SOURCES) await listManager.setEnabled(l.id, false);
+      await threatService.resetAll();
       await browser.storage.local.clear();
       await browser.storage.local.set(activeSettings);
       await applyPolicy();

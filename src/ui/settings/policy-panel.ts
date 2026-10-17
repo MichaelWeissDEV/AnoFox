@@ -9,6 +9,7 @@ import { MODULE_INFO, PROFILE_INFO, LEVEL_LABEL } from '../../core/capabilities/
 import type { AnoFoxSettings } from '../../core/settings/settings.ts';
 import { sanitizeDomainList } from '../../core/domain-utils/domains.ts';
 
+interface ThreatListState { enabled: boolean; installed?: boolean; ruleCount?: number; lastError?: string; current?: { filterCount: number; fetchedAt: number } }
 const RULE_MODULES: ModuleId[] = ['scripts', 'inline', 'network', 'adblock', 'consent'];
 const DURATION_LABEL: Record<Exclude<Duration, 'once' | 'tab'>, string> = {
   session: 'Bis Browserende', permanent: 'Dauerhaft'
@@ -158,6 +159,7 @@ export function initPolicyPanel(
       list.append(row);
     }
     root.append(list);
+    await renderThreat(root);
     await renderLists(root);
     root.append(el('p', 'policy-note',
       'Hinweis: Website-Regeln für Skripte und Netzwerk greifen auf die Seite, die die Anfrage auslöst (Initiator). Regeln für Inline-Skripte gelten für die Dokument-Domain (ohne Ziel, nur Sitzung/dauerhaft) und wirken erst nach dem Neuladen der Seite.'));
@@ -298,6 +300,49 @@ export function initPolicyPanel(
       box.append(row);
     }
     into.append(box);
+  }
+
+  async function renderThreat(into: HTMLElement): Promise<void> {
+    const res = await browser.runtime.sendMessage({ type: 'GET_THREAT_STATUS' }).catch(() => null);
+    if (!res?.success) return;
+    into.append(el('h3', 'policy-h', 'Schutz vor Phishing und Malware'));
+    into.append(el('p', 'policy-note',
+      'Standardmäßig aus. Aktivierte Listen lädt AnoFox per HTTPS direkt vom Anbieter (ohne Cookies und Referrer; der Anbieter sieht deine IP-Adresse). ' +
+      'Der Abgleich geschieht ausschließlich lokal: Es wird keine besuchte Adresse, kein Hash und kein Präfix an einen Dienst gesendet. ' +
+      'Treffer auf Hauptseiten zeigen eine Warnseite (mit „Trotzdem öffnen“ für 10 Minuten oder die Sitzung), Unterressourcen werden blockiert. ' +
+      'Die Listen blocken ganze Hosts samt Subdomains; Einträge auf sehr großen Plattformen (z. B. google.com) werden bewusst ignoriert. ' +
+      'Zusätzlich warnt eine lokale Regel vor Adressen mit Zugangsdaten vor dem Server („paypal.com@fremder-server“), sobald das Modul Phishing nicht aus ist. ' +
+      'Nicht umgesetzt: Erkennung ähnlich geschriebener Domains (IDN/Homographen).'));
+    const box = el('div', 'policy-rules');
+    for (const l of res.lists as Array<{ id: string; kind: string; name: string; description: string; license: string; attribution: string; state: ThreatListState }>) {
+      const row = el('div', 'policy-rule');
+      const cb = el('input'); cb.type = 'checkbox'; cb.checked = l.state.enabled; cb.setAttribute('aria-label', l.name);
+      cb.addEventListener('change', async () => {
+        cb.disabled = true;
+        toast(cb.checked ? `${l.name}: lade …` : `${l.name}: deaktiviere …`);
+        const r = await browser.runtime.sendMessage({ type: 'SET_THREAT_LIST_ENABLED', id: l.id, enabled: cb.checked }).catch(() => null);
+        if (!r?.success) toast(`${l.name}: Fehler (${r?.error ?? 'unbekannt'})`);
+        await render();
+      });
+      const cur = l.state.current;
+      const info = el('span', 'policy-rule-text');
+      info.textContent = `${l.name} – ${l.description}` + (cur && l.state.installed
+        ? ` · ${cur.filterCount} Einträge in ${l.state.ruleCount} Regeln · Stand ${new Date(cur.fetchedAt).toLocaleString()}` : '');
+      row.append(cb, info);
+      if (l.state.lastError) row.append(el('span', 'chip todo', 'Fehler: ' + l.state.lastError + ' (vorherige Version bleibt aktiv)'));
+      row.append(el('span', 'chip', 'Lizenz: ' + l.license));
+      box.append(row);
+    }
+    into.append(box);
+    const upd = el('button', undefined, '🔄 Jetzt aktualisieren'); upd.type = 'button';
+    upd.addEventListener('click', async () => {
+      upd.disabled = true;
+      const r = await browser.runtime.sendMessage({ type: 'UPDATE_THREATS_NOW' }).catch(() => null);
+      toast(r?.success ? 'Prüfung abgeschlossen' : 'Aktualisierung fehlgeschlagen');
+      await render();
+    });
+    into.append(upd);
+    into.append(el('p', 'policy-note', 'Quellen: ' + (res.lists as Array<{ name: string; attribution: string }>).map((l) => `${l.name} (${l.attribution})`).join(' · ')));
   }
 
   async function renderLists(into: HTMLElement): Promise<void> {

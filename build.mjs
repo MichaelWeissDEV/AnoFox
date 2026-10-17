@@ -16,18 +16,20 @@ await build({
     'src/options.ts',
     'src/content-embed-guard.ts',
     'src/content-cosmetic.ts',
-    'src/content-consent.ts'
+    'src/content-consent.ts',
+    'src/blocked.ts'
   ],
   outdir,
   bundle: true,
   format: 'iife',
-  target: 'es2022'
+  target: 'es2022',
+  define: { __E2E__: String(e2e) } // test-only hooks are compiled out of the real extension
 });
 
 await cp('public', outdir, { recursive: true });
 
 if (e2e) {
-  await build({ entryPoints: ['test/firefox/e2e/driver.ts'], outfile: `${outdir}/e2e-driver.js`, bundle: true, format: 'iife', target: 'es2022' });
+  await build({ entryPoints: ['test/firefox/e2e/driver.ts'], outfile: `${outdir}/e2e-driver.js`, bundle: true, format: 'iife', target: 'es2022', define: { __E2E__: 'true' } });
   await cp('test/firefox/e2e/driver.html', `${outdir}/e2e-driver.html`);
   // test-only boot script (e2e build only): opens the driver page once the background is up
   // (the event page restarts whenever it was idle; boot exactly once per browser session)

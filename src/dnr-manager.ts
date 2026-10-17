@@ -240,7 +240,7 @@ export async function listRuleBudget(): Promise<number> {
   const limit = typeof api.MAX_NUMBER_OF_DYNAMIC_RULES === 'number' ? api.MAX_NUMBER_OF_DYNAMIC_RULES : 5000; // conservative fallback
   const existing = await api.getDynamicRules();
   const others = existing.filter((r) => r.id < 100_000 || r.id > 199_999).length;
-  return Math.max(0, limit - others - 1000); // reserve: policy user rules (<=900) + cleaner/embed rules
+  return Math.max(0, limit - others - 1300); // reserve: policy user rules (<=900), cleaner/embed rules and the threat lists (~300)
 }
 
 /**

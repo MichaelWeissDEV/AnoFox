@@ -13,8 +13,8 @@ export interface ModuleInfo {
 }
 
 export const MODULE_INFO: Record<ModuleId, ModuleInfo> = {
-  malware: { label: 'Malware', description: 'Bekannte Malware-Ziele blockieren.', enforced: false, note: 'Noch nicht implementiert (Phase 3).' },
-  phishing: { label: 'Phishing', description: 'Verdächtige URLs erkennen.', enforced: false, note: 'Noch nicht implementiert.' },
+  malware: { label: 'Malware', description: 'Bekannte Malware-Domains blockieren (lokale Listen).', enforced: true, note: 'Listen sind aus, bis du sie aktivierst. Abgleich nur lokal per declarativeNetRequest, keine Cloud-Abfrage; Hauptseiten zeigen eine Warnseite, Unterressourcen werden blockiert.' },
+  phishing: { label: 'Phishing', description: 'Phishing-Domains blockieren und irreführende Adressen (Zugangsdaten in der URL) warnen.', enforced: true, note: 'Wie Malware; zusätzlich eine lokale Regel für „name@fremder-server“-Adressen. Nicht umgesetzt: Erkennung ähnlicher Schreibweisen (IDN/Homographen).' },
   network: { label: 'Netzwerk-Firewall', description: 'Drittanbieter-Frames, -Fonts und weitere Ressourcen (ohne Skripte).', enforced: true, note: 'declarativeNetRequest, blockiert vor der Anfrage. Strict: Frames/Fonts, Lockdown: alles außer Bilder und Skripte.' },
   scripts: { label: 'Skripte', description: 'Externe JavaScript-Dateien kontrollieren.', enforced: true, note: 'Externe Skripte über Netzwerkregeln. Inline-Skripte kontrolliert das Modul „Inline-Skripte & Eval“.' },
   inline: { label: 'Inline-Skripte & Eval', description: 'Inline-Skripte, Event-Handler, eval und Wasm per Content-Security-Policy unterbinden.', enforced: true, note: 'In Firefox 158 geprüft (CSP-Header per declarativeNetRequest). Strict: nur externe Quellen, kein Inline/eval. Lockdown: gar kein JavaScript, Wirkung beim nächsten Laden der Seite. Seiten funktionieren oft nicht.' },
