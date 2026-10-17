@@ -3,6 +3,7 @@ node_modules/
 dist/
 dist-e2e/
 web-ext-artifacts/
+build/
 
 # logs and temporary data
 *.log

@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "anofox-static-probe",
+  "version": "1.0",
+  "permissions": [
+    "declarativeNetRequest",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": [
+      "bg.js"
+    ]
+  },
+  "declarative_net_request": {
+    "rule_resources": []
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "static-probe@example.org",
+      "strict_min_version": "128.0"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "blocked.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

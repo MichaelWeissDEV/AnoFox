@@ -36,6 +36,10 @@ Versionierung nach [SemVer](https://semver.org/lang/de/). Solange die erste Vers
   malware-filter), Phishing-Filter, Phishing.Database, alle standardmäßig aus.
 - **Public Suffix List** (MPL-2.0, vendored, Generator `scripts/build-psl.mjs`) statt Übergangsliste; Punycode für IDN.
 - Echter Listen-Download in Firefox geprüft (`npm run test:e2e:download`), `docs/architecture/permissions.md`, Manifest-Test.
+- **Statische Rulesets geprüft** (`npm run test:firefox:static`, `docs/architecture/static-rulesets.md`): Pool von 30 000 Regeln in
+  Firefox 158 gemessen (31 000 scheitern, 1 001 Regex-Regeln scheitern, keine Navigationsbremse), Lizenzentscheidung (nur
+  EasyList/EasyPrivacy unter GPLv3+, keine AdGuard-/Bedrohungslisten), Bau-Werkzeug `npm run build:rulesets`. Es wird noch
+  keine Liste mitgeliefert.
 - Logo und Erweiterungs-Icons.
 - Tests: Unit-Tests, Firefox-Messsuiten (CSP, `privacy`-API, Navigator, Löschreichweite) und eine
   **Ende-zu-Ende-Suite mit der gebauten Erweiterung in echtem Firefox** (76 Prüfungen).

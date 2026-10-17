@@ -54,7 +54,7 @@ Kein Code aus Listen wird ausgeführt; Listen sind reine Daten, unbekannte Optio
 | EasyList | 55 073 | 23 813 | 4 017 (vor allem `$popup` 2 969, prozedural 574, `generichide` 169, Entity-Domains 295) | 3 850 | ~100 ms |
 | EasyPrivacy | 56 269 | 2 | 72 (`redirect` 30, Scriptlets 30) | 9 191 | ~70 ms |
 
-Folge: Bei einem Kontingent von 5 000 dynamischen Regeln passt EasyList knapp, EasyPrivacy nicht. Der Manager liest das echte Limit zur Laufzeit, zieht 1 000 Reserve für Policy-Regeln ab und kennzeichnet abgeschnittene Listen als `partial`. Für vollständige Abdeckung braucht es statische Rulesets (Build-Zeit-Kompilierung; Lizenzfrage siehe oben) oder ein größeres Limit – **in echtem Firefox prüfen**.
+Folge: Bei einem Kontingent von 5 000 dynamischen Regeln passt EasyList knapp, EasyPrivacy nicht. Der Manager liest das echte Limit zur Laufzeit, zieht 1 000 Reserve für Policy-Regeln ab und kennzeichnet abgeschnittene Listen als `partial`. Für vollständige Abdeckung kommen statische Rulesets in Frage (Pool 30 000, in Firefox 158 gemessen; EasyList + EasyPrivacy = 13 042 Regeln passen). Messung, Lizenzentscheidung und Entwurf: [static-rulesets.md](static-rulesets.md). Mitgeliefert wird derzeit nichts.
 
 ## Updater & Manager (umgesetzt, nur gegen Fakes getestet)
 - Allowlist der Quellen (`sources.ts`), nur HTTPS, Host nach Redirect erneut geprüft, keine Credentials/Ports.

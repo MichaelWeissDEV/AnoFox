@@ -31,7 +31,9 @@
     "test:e2e": "node --no-warnings test/firefox/e2e/run.mjs",
     "check": "npm run typecheck && npm test",
     "test:firefox:threat": "node --no-warnings test/firefox/threat/run.mjs",
-    "test:e2e:download": "E2E_NETWORK=1 node --no-warnings test/firefox/e2e/run.mjs"
+    "test:e2e:download": "E2E_NETWORK=1 node --no-warnings test/firefox/e2e/run.mjs",
+    "test:firefox:static": "node --experimental-strip-types --no-warnings test/firefox/static/run.mjs",
+    "build:rulesets": "node --experimental-strip-types --no-warnings scripts/build-rulesets.mjs"
   },
   "devDependencies": {
     "@types/firefox-webext-browser": "^120.0.4",
