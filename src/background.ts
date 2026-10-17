@@ -33,6 +33,7 @@ import type { PrivacyApi, NativeStatus } from './protection/fingerprint/native.t
 import { ListManager } from './protection/adblock/manager.ts';
 import { LIST_SOURCES } from './protection/adblock/sources.ts';
 import { CosmeticIndex, buildCss } from './protection/adblock/cosmetic.ts';
+import { createStaticRulesetService } from './browser/background/static-rulesets.ts';
 import { planDnr, policyStateOf } from './core/policy-engine/apply.ts';
 import { pruneRules, effectiveLevels, pickRule } from './core/policy-engine/policy.ts';
 import { DEFAULT_SETTINGS, defaultSettings, migrateSettings, normalizeSettings, parseImport } from './core/settings/settings.ts';
@@ -81,6 +82,7 @@ function applyPolicy(): Promise<boolean> {
     const okSession = await syncPolicySessionRules(plan.session);
     await syncNative().catch((e) => logger.error('Native Einstellungen fehlgeschlagen:', e));
     await threatService.sync();
+    await staticRulesets.sync();
     return okDynamic && okSession;
   };
   const next = policyQueue.then(run, run);
@@ -123,6 +125,8 @@ async function commitRules(rules: AnoFoxSettings['rules']): Promise<void> {
   await applyPolicy();
 }
 
+const staticRulesets = createStaticRulesetService(() => activeSettings, () => { cosmeticIndexPromise = null; });
+
 // ---- Filter lists (opt-in, default off) -------------------------------------------------------
 const listManager = new ListManager({
   updater: {
@@ -155,7 +159,7 @@ const listManager = new ListManager({
 let cosmeticIndexPromise: Promise<CosmeticIndex> | null = null;
 function getCosmeticIndex(): Promise<CosmeticIndex> {
   if (!cosmeticIndexPromise) {
-    cosmeticIndexPromise = listManager.getCosmeticFilters().then((f) => new CosmeticIndex(f));
+    cosmeticIndexPromise = Promise.all([listManager.getCosmeticFilters(), staticRulesets.cosmeticFilters()]).then(([a, b]) => new CosmeticIndex([...a, ...b]));
     cosmeticIndexPromise.catch(() => { cosmeticIndexPromise = null; });
   }
   return cosmeticIndexPromise;
@@ -740,9 +744,23 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
     }
 
     case 'SET_LIST_ENABLED': {
+      // a list is either shipped (snapshot) or downloaded, never both: same id, same rules twice would only waste quota
+      if (message.enabled && await staticRulesets.isWanted(String(message.id))) await staticRulesets.setWanted(String(message.id), false);
       const summary = await listManager.setEnabled(String(message.id), Boolean(message.enabled));
       const err = summary.errors[String(message.id)];
       return { success: !err || summary.applied, summary, error: err };
+    }
+
+    case 'GET_STATIC_LISTS': {
+      return { success: true, ...(await staticRulesets.status()) };
+    }
+
+    case 'SET_STATIC_LIST': {
+      const id = String(message.id);
+      const on = Boolean(message.enabled);
+      if (on) await listManager.setEnabled(id, false);
+      const error = await staticRulesets.setWanted(id, on);
+      return { success: !error, error: error ?? undefined };
     }
 
     case 'SET_LIST_INTERVAL': {
@@ -779,6 +797,7 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
       // list rules live outside the settings; turn lists off first so no orphaned DNR rules remain
       for (const l of LIST_SOURCES) await listManager.setEnabled(l.id, false);
       await threatService.resetAll();
+      await staticRulesets.clear();
       await browser.storage.local.clear();
       await browser.storage.local.set(activeSettings);
       await applyPolicy();

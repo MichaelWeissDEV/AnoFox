@@ -436,7 +436,39 @@ export function initPolicyPanel(
     into.append(el('p', 'policy-note', 'Quellen: ' + (res.lists as Array<{ name: string; attribution: string }>).map((l) => `${l.name} (${l.attribution})`).join(' · ')));
   }
 
+  async function renderBundled(into: HTMLElement): Promise<void> {
+    const st = await browser.runtime.sendMessage({ type: 'GET_STATIC_LISTS' }).catch(() => null);
+    if (!st?.success) return;
+    into.append(el('h3', 'policy-h', 'Mitgelieferte Listen (Schnappschuss)'));
+    if (!st.available) {
+      into.append(el('p', 'policy-note', 'Diese Version enthält keine mitgelieferten Listen. Die Listen unten lassen sich herunterladen (Teilabdeckung wegen des Regelkontingents).'));
+      return;
+    }
+    const built = new Date(st.builtAt).toLocaleDateString();
+    into.append(el('p', 'policy-note',
+      `Fest im Erweiterungspaket, Stand ${built}: kein Download, volle Regelmenge (eigenes Kontingent von 30 000 Regeln), aber ` +
+      'sie ändern sich nur mit einer neuen AnoFox-Version und können veralten. Eine Liste ist entweder mitgeliefert oder heruntergeladen, nie beides.'));
+    const box = el('div', 'policy-rules');
+    for (const l of st.lists as Array<{ id: string; name: string; rules: number; fetchedAt: string; license: string; attribution: string; wanted: boolean; active: boolean }>) {
+      const row = el('div', 'policy-rule');
+      const cb = el('input'); cb.type = 'checkbox'; cb.checked = l.wanted; cb.setAttribute('aria-label', `${l.name} (Schnappschuss)`);
+      cb.addEventListener('change', async () => {
+        cb.disabled = true;
+        const r = await browser.runtime.sendMessage({ type: 'SET_STATIC_LIST', id: l.id, enabled: cb.checked }).catch(() => null);
+        if (!r?.success) toast(`${l.name}: Fehler (${r?.error ?? 'unbekannt'})`);
+        await render();
+      });
+      const info = el('span', 'policy-rule-text');
+      info.textContent = `${l.name} – ${l.rules} Regeln · Schnappschuss vom ${new Date(l.fetchedAt).toLocaleDateString()}`;
+      row.append(cb, info, el('span', 'chip' + (l.active ? '' : ' todo'), l.active ? 'aktiv' : 'aus'), el('span', 'chip', 'Lizenz: ' + l.license));
+      box.append(row);
+    }
+    into.append(box);
+    into.append(el('p', 'policy-note', 'Quellen: ' + (st.lists as Array<{ name: string; attribution: string }>).map((l) => `${l.name} (${l.attribution})`).join(' · ')));
+  }
+
   async function renderLists(into: HTMLElement): Promise<void> {
+    await renderBundled(into);
     const res = await browser.runtime.sendMessage({ type: 'GET_LISTS' }).catch(() => null);
     if (!res?.success) return;
     into.append(el('h3', 'policy-h', 'Filterlisten (experimentell)'));

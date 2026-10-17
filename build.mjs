@@ -1,5 +1,7 @@
 import { build } from 'esbuild';
 import { cp, mkdir, rm, readFile, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tokensCss } from './src/ui/tokens.mjs';
 
 // `node build.mjs`          -> dist/       (the extension)
@@ -31,6 +33,23 @@ await cp('public', outdir, { recursive: true });
 // inject the contrast-tested design tokens into the shared stylesheet
 const ui = await readFile('public/ui.css', 'utf8');
 await writeFile(`${outdir}/ui.css`, ui.replace('/* @tokens */', tokensCss()));
+
+// Bundled list snapshots (static rulesets): shipped only if `npm run build:rulesets` produced them. The E2E build uses a tiny
+// deterministic fixture bundle instead (never the real lists), so tests do not depend on the network.
+let rulesDir = process.env.ANOFOX_NO_BUNDLE ? null : 'build/rulesets';
+if (e2e) {
+  rulesDir = 'build/rulesets-e2e';
+  const r = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', 'scripts/build-rulesets.mjs', '--fixture', rulesDir], { stdio: 'inherit' });
+  if (r.status !== 0) throw new Error('fixture ruleset build failed');
+}
+if (rulesDir && existsSync(`${rulesDir}/index.json`)) {
+  await cp(rulesDir, `${outdir}/rulesets`, { recursive: true });
+  const index = JSON.parse(await readFile(`${rulesDir}/index.json`, 'utf8'));
+  const manifest = JSON.parse(await readFile(`${outdir}/manifest.json`, 'utf8'));
+  // enabled:false -> nothing is active until the user opts in
+  manifest.declarative_net_request = { rule_resources: index.lists.map((l) => ({ id: l.rulesetId, enabled: false, path: `rulesets/${l.rulesetId}.json` })) };
+  await writeFile(`${outdir}/manifest.json`, JSON.stringify(manifest, null, 2));
+}
 
 if (e2e) {
   await build({ entryPoints: ['test/firefox/e2e/driver.ts'], outfile: `${outdir}/e2e-driver.js`, bundle: true, format: 'iife', target: 'es2022', define: { __E2E__: 'true' } });
