@@ -11,6 +11,7 @@
 | [architecture/fingerprinting-normalization.md](architecture/fingerprinting-normalization.md) | Warum Navigator-Spoofing nicht ausgeliefert wird |
 | [architecture/storage-reach.md](architecture/storage-reach.md) | Löschreichweite von cookies/browsingData, Cookie-Vault-Design |
 | [architecture/consent.md](architecture/consent.md) | Cookie-Banner-Manager: Garantien, Modi, Adapter, Grenzen |
+| [architecture/threat-lists.md](architecture/threat-lists.md) | Phishing/Malware: Quellen, Lizenzen, Datenschutz, Kapazität, Design |
 | [architecture/audit-phase0.md](architecture/audit-phase0.md) | Bestandsaufnahme der Ausgangsversion und Umsetzungsstatus |
 
 Messaussagen stammen aus `test/firefox/` (echter Firefox). Alles andere ist als „nicht verifiziert“ gekennzeichnet.

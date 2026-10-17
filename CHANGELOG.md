@@ -28,9 +28,13 @@ Versionierung nach [SemVer](https://semver.org/lang/de/). Solange die erste Vers
 - **Cookie-Banner-Manager** (Modi Manuell/Ablehnen/Ausblenden, Adapter für OneTrust, Cookiebot, Usercentrics, Klaro, Didomi,
   Quantcast und ein generischer Erkenner): erteilt nie Zustimmung, verweigert Klicks auf zustimmend beschriftete Elemente,
   blendet blockierende Dialoge nicht aus; Abschalten pro Website. Geprüft gegen nachgebaute Dialoge.
+- **Phishing- und Malware-Schutz** nur mit lokalen Listen (keine Cloud-Abfrage): Domain-Parser mit „Nie blockieren“-Menge,
+  Compiler (bis 400 000 Domains in Firefox gemessen), Warnseite mit Freigabe nur über die eigene Seite, Warnung vor Adressen
+  mit Zugangsdaten vor dem Server, Schutz gegen vergiftete Listen, Listen-Manager mit Rollback. Quellen: URLhaus (via
+  malware-filter), Phishing-Filter, Phishing.Database, alle standardmäßig aus.
 - Logo und Erweiterungs-Icons.
 - Tests: Unit-Tests, Firefox-Messsuiten (CSP, `privacy`-API, Navigator, Löschreichweite) und eine
-  **Ende-zu-Ende-Suite mit der gebauten Erweiterung in echtem Firefox** (53 Prüfungen).
+  **Ende-zu-Ende-Suite mit der gebauten Erweiterung in echtem Firefox** (63 Prüfungen).
 - Dokumentation der Fähigkeiten und Messungen unter `docs/architecture/`.
 
 ### Geändert

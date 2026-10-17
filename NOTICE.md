@@ -12,7 +12,17 @@ Lizenzstand nach Websuche (2026-10-16); vor einem Release gegen Dateikopf und Re
 | EasyList, EasyPrivacy | easylist.to | GPLv3+ **oder** CC BY-SA 3.0+ (wählbar) | The EasyList authors (https://easylist.to/) |
 | AdGuard Base | AdguardTeam/AdguardFilters (filters.adtidy.org) | GPL-3.0 (laut Drittquellen, noch am Repository zu bestätigen) | AdGuard Software Ltd |
 
-Weitere Listen (uBlock filters, Peter Lowe’s, URLhaus u. a.) sind **nicht** eingebunden; ihre Lizenzen sind ungeprüft.
+### Phishing- und Malware-Listen (Domain-Listen)
+
+| Liste | Quelle | Lizenz / Bedingungen | Namensnennung |
+|---|---|---|---|
+| Malware – aktive Domains | malware-filter (urlhaus-filter) | Repository MIT und CC0; Originaldaten abuse.ch URLhaus unter „Fair Use“ (abuse.ch/terms-of-use), **nicht von uns geprüft** | malware-filter (Ming Di Leom); abuse.ch URLhaus |
+| Phishing – Domains | malware-filter (phishing-filter) | **CC BY-SA 4.0** (Namensnennung, Weitergabe unter gleichen Bedingungen); Quellen OpenPhish (kostenlos laut deren Bedingungen), IPThreat (CC BY-SA 4.0), PhishTank | malware-filter; OpenPhish; IPThreat; PhishTank |
+| Phishing – Phishing.Database | Phishing-Database/Phishing.Database | MIT | Mitchell Krog, Nissar Chababy, Phishing.Database Contributors |
+
+Auch diese Listen werden nicht mitgeliefert, sondern nur auf Wunsch geladen. Vor einem Release gegen die Anbieterbedingungen prüfen.
+
+Weitere Listen (uBlock filters, Peter Lowe’s u. a.) sind **nicht** eingebunden; ihre Lizenzen sind ungeprüft.
 
 ## Public Suffix List
 
